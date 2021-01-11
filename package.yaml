@@ -1,0 +1,59 @@
+name: openhell
+version: 0.0.1
+maintainer: Markus Läll <markus.l2ll@gmail.com>
+license: MIT
+category: Cryptography
+
+dependencies:
+- base
+- bytestring
+- mtl
+- optparse-applicative
+- cryptonite
+- x509
+- cryptostore
+- pem
+- pkcs10
+
+default-extensions:
+- Arrows
+- BangPatterns
+- ConstraintKinds
+- DataKinds
+- DefaultSignatures
+- DeriveDataTypeable
+- DeriveFunctor
+- DeriveGeneric
+- DerivingVia
+- EmptyDataDecls
+- ExtendedDefaultRules
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- GADTs
+- GeneralizedNewtypeDeriving
+- InstanceSigs
+- KindSignatures
+- LambdaCase
+- MultiParamTypeClasses
+- MultiWayIf
+- NamedFieldPuns
+- NoImplicitPrelude
+- NoMonomorphismRestriction
+- OverloadedStrings
+- PolyKinds
+- QuasiQuotes
+- RecursiveDo
+- ScopedTypeVariables
+- StandaloneDeriving
+- TemplateHaskell
+- TupleSections
+- TypeFamilies
+- TypeInType
+- TypeOperators
+- TypeSynonymInstances
+
+executables:
+  openhell:
+    source-dirs: src
+    main: Main.hs
