@@ -9,11 +9,14 @@ import Crypto.Hash.Algorithms
 import qualified Crypto.PubKey.DSA        as DSA
 import qualified Crypto.PubKey.ECC.ECDSA  as ECDSA
 import qualified Crypto.PubKey.ECC.Types  as ECC
+import qualified Crypto.PubKey.ECC.Generate as ECC
 import qualified Crypto.PubKey.Ed25519    as Ed25519
 import qualified Crypto.PubKey.Ed448      as Ed448
 import qualified Crypto.PubKey.RSA        as RSA
 import qualified Crypto.PubKey.RSA.PKCS15 as RSA
 import qualified Crypto.PubKey.RSA.PSS    as PSS
+
+import qualified Key
 
 -- * Match @hash@ algorithm type to @HashALG@ value
 
@@ -47,15 +50,31 @@ hashSHA512 = Hash HashSHA512 SHA512
 -- | Signature algorithm consists of a hash algorithm plus a public
 -- key cryptosystem to sign the hash. (The cryptosystem doesn't
 -- determine the signing algorithm as for RSA there are two.)
-data SignatureAlgorithm pub priv where
-  RSA :: (HashAlgorithm hash, RSA.HashAlgorithmASN1 hash) => Int -> Hash hash -> SignatureAlgorithm RSA.PublicKey RSA.PrivateKey
-  RSAPSS :: HashAlgorithm hash => Int -> PSS.PSSParams hash BS.ByteString BS.ByteString -> Hash hash -> SignatureAlgorithm RSA.PublicKey RSA.PrivateKey
-  DSA :: HashAlgorithm hash => DSA.Params -> Hash hash -> SignatureAlgorithm DSA.PublicKey DSA.PrivateKey
-  EC :: HashAlgorithm hash => ECC.CurveName -> Hash hash -> SignatureAlgorithm ECDSA.PublicKey ECDSA.PrivateKey
-  Ed25519 :: SignatureAlgorithm Ed25519.PublicKey Ed25519.SecretKey
-  Ed448 :: SignatureAlgorithm Ed448.PublicKey Ed448.SecretKey
+data SignatureAlgorithm alg where
+  RSA
+    :: (HashAlgorithm hash, RSA.HashAlgorithmASN1 hash)
+    => Int -> Hash hash
+    -> SignatureAlgorithm Key.RSA
 
-signatureALG :: SignatureAlgorithm pub priv -> SignatureALG
+  RSAPSS
+    :: HashAlgorithm hash
+    => Int -> PSS.PSSParams hash BS.ByteString BS.ByteString -> Hash hash
+    -> SignatureAlgorithm Key.RSA
+
+  DSA
+    :: HashAlgorithm hash
+    => DSA.Params -> Hash hash
+    -> SignatureAlgorithm Key.DSA
+
+  EC
+    :: HashAlgorithm hash
+    => ECC.CurveName -> Hash hash
+    -> SignatureAlgorithm Key.ECDSA
+
+  Ed25519 :: SignatureAlgorithm Key.Ed25519
+  Ed448 :: SignatureAlgorithm Key.Ed448
+
+signatureALG :: SignatureAlgorithm alg -> SignatureALG
 signatureALG sa = case sa of
   RSA _ hash -> SignatureALG (hashALG hash) PubKeyALG_RSA
   RSAPSS _ _ hash -> SignatureALG (hashALG hash) PubKeyALG_RSAPSS
@@ -64,7 +83,7 @@ signatureALG sa = case sa of
   Ed25519 -> SignatureALG_IntrinsicHash PubKeyALG_Ed25519
   Ed448 -> SignatureALG_IntrinsicHash PubKeyALG_Ed448
 
-getPubKey :: SignatureAlgorithm pub priv -> pub -> PubKey
+getPubKey :: SignatureAlgorithm alg -> Key.Public alg -> PubKey
 getPubKey sa key = case sa of
   RSA _ _ -> PubKeyRSA key
   RSAPSS _ _ _ -> PubKeyRSA key

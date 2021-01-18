@@ -28,14 +28,10 @@ import Data.ASN1.Encoding
 import Data.ByteArray (convert)
 import Data.ASN1.BinaryEncoding (DER(..))
 
-<<<<<<< HEAD:src/Certificate.hs
-import qualified Certificate.SignatureAlgorithm as SA
-import Certificate.SignatureAlgorithm (SignatureAlgorithm, hashAlgorithm)
-=======
 import qualified X509.SignatureAlgorithm as SA
 import X509.SignatureAlgorithm (SignatureAlgorithm, hashAlgorithm)
+
 import qualified Key
->>>>>>> f9cd529 (fixup! Add Certificate signing, make it a library + executable):src/X509/Certificate.hs
 
 signCsr
   :: (Monad m, MonadIO m)
@@ -69,12 +65,12 @@ signCsr csr caPriv issuerName = do
     --   , extensionEncode True $ ExtExtendedKeyUsage [KeyUsagePurpose_ClientAuth]
     --   ]
 
-    sigAlg' = SA.RSA 0 SA.hashSHA256 :: SA.SignatureAlgorithm RSA.PublicKey RSA.PrivateKey
+    sigAlg' = SA.RSA 0 SA.hashSHA256 :: SA.SignatureAlgorithm Key.RSA
 
   liftIO $ mkLeaf commonName validity (caPriv, sigAlg', issuerDN) pubKey
 
 -- | Sign @message@ with a signature algorithm and a fitting private key
-sign :: SignatureAlgorithm pub priv -> priv -> B.ByteString -> IO (Either RSA.Error B.ByteString)
+sign :: SignatureAlgorithm alg -> Key.Private alg -> B.ByteString -> IO (Either RSA.Error B.ByteString)
 sign sa key message = case sa of
   SA.RSA _ hash -> RSA.signSafer (Just $ hashAlgorithm hash) key message
   SA.RSAPSS _ params _ -> PSS.signSafer params key message
@@ -99,20 +95,20 @@ sign sa key message = case sa of
 
 -- * New system
 
-type Authority pub priv = (priv, SignatureAlgorithm pub priv, DistinguishedName)
+type Authority alg = (Key.Private alg, SignatureAlgorithm alg, DistinguishedName)
 
 -- | Builds a certificate using the supplied keys and signs it with an
 -- authority (itself or another certificate).
 mkCertificate
-  :: forall pubI privI.
+  :: forall alg.
      Int                        -- ^ Certificate version
   -> Integer                    -- ^ Serial number
   -> DistinguishedName          -- ^ Subject DN
   -> (DateTime, DateTime)       -- ^ Certificate validity period
   -> [ExtensionRaw]             -- ^ Extensions to include
-  -> Authority pubI privI           -- ^ Authority signing the new certificate
+  -> Authority alg           -- ^ Authority signing the new certificate
   -> PubKey                     -- ^ Keys for the new certificate
-  -> IO (SignatureAlgorithm pubI privI, SignedCertificate)       -- ^ The new certificate/key pair
+  -> IO (SignatureAlgorithm alg, SignedCertificate)       -- ^ The new certificate/key pair
 mkCertificate version serial dn validity exts (signingKey, algI, issuerDN) tbsPub = let
 
     signAlgI = SA.signatureALG algI :: SignatureALG
@@ -144,9 +140,9 @@ mkCA
   -> (DateTime, DateTime)       -- ^ Validity period
   -> Maybe ExtBasicConstraints  -- ^ Basic constraints
   -> Maybe ExtKeyUsage          -- ^ Key usage
-  -> Authority pubI privI           -- ^ Authority. CA is self-signed, so authority cryptosystem matches to-be-signed's
-  -> pubI                       -- ^ Public key of the certificate
-  -> IO (SignatureAlgorithm pubI privI, SignedCertificate)
+  -> Authority alg           -- ^ Authority. CA is self-signed, so authority cryptosystem matches to-be-signed's
+  -> Key.Public alg                       -- ^ Public key of the certificate
+  -> IO (SignatureAlgorithm alg, SignedCertificate)
 mkCA serial cn validity bc ku auth@ (_, sig, _) pub = let
     exts = catMaybes [ mkExtension True <$> bc, mkExtension False <$> ku ]
     pub' = SA.getPubKey sig pub
@@ -155,9 +151,9 @@ mkCA serial cn validity bc ku auth@ (_, sig, _) pub = let
 mkLeaf
   :: String               -- ^ Common name
   -> (DateTime, DateTime) -- ^ Certificate validity period
-  -> Authority pubI privI     -- ^ Authority signing the new certificate
+  -> Authority alg     -- ^ Authority signing the new certificate
   -> PubKey
-  -> IO (SignatureAlgorithm pubI privI, SignedCertificate)       -- ^ The new leaf certificate/key pair
+  -> IO (SignatureAlgorithm alg, SignedCertificate)       -- ^ The new leaf certificate/key pair
 mkLeaf cn validity auth pub = mkCertificate 2 100 (mkCN $ fromString cn) validity leafStdExts auth pub
   where
     -- | Default extensions in leaf certificates.
