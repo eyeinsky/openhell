@@ -14,6 +14,10 @@ dependencies:
 - cryptostore
 - pem
 - pkcs10
+- asn1-encoding
+- asn1-types
+- memory
+- hourglass
 
 default-extensions:
 - Arrows
@@ -38,7 +42,6 @@ default-extensions:
 - MultiParamTypeClasses
 - MultiWayIf
 - NamedFieldPuns
-- NoImplicitPrelude
 - NoMonomorphismRestriction
 - OverloadedStrings
 - PolyKinds
@@ -53,7 +56,13 @@ default-extensions:
 - TypeOperators
 - TypeSynonymInstances
 
+library:
+  source-dirs: src
+  exposed-modules:
+  - X509.Certificate
+  - X509.SignatureAlgorithm
+
 executables:
   openhell:
-    source-dirs: src
+    source-dirs: exe
     main: Main.hs
