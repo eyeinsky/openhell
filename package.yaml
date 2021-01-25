@@ -19,6 +19,21 @@ dependencies:
 - memory
 - hourglass
 
+library:
+  source-dirs: src
+  exposed-modules:
+  - X509.Certificate
+  - X509.SignatureAlgorithm
+  - Key
+
+executables:
+  openhell:
+    source-dirs: exe
+    main: Main.hs
+    dependencies: openhell
+    other-modules:
+    - CLI.Key
+
 default-extensions:
 - Arrows
 - BangPatterns
@@ -55,18 +70,3 @@ default-extensions:
 - TypeInType
 - TypeOperators
 - TypeSynonymInstances
-
-library:
-  source-dirs: src
-  exposed-modules:
-  - X509.Certificate
-  - X509.SignatureAlgorithm
-  - Key
-
-executables:
-  openhell:
-    source-dirs: exe
-    main: Main.hs
-    dependencies: openhell
-    other-modules:
-    - CLI.Key
