@@ -53,17 +53,17 @@ hashSHA512 = Hash HashSHA512 SHA512
 data SignatureAlgorithm alg where
   RSA
     :: (HashAlgorithm hash, RSA.HashAlgorithmASN1 hash)
-    => Int -> Hash hash
+    => Hash hash
     -> SignatureAlgorithm Key.RSA
 
   RSAPSS
     :: HashAlgorithm hash
-    => Int -> PSS.PSSParams hash BS.ByteString BS.ByteString -> Hash hash
+    => PSS.PSSParams hash BS.ByteString BS.ByteString -> Hash hash
     -> SignatureAlgorithm Key.RSA
 
   DSA
     :: HashAlgorithm hash
-    => DSA.Params -> Hash hash
+    => Hash hash
     -> SignatureAlgorithm Key.DSA
 
   EC
@@ -76,18 +76,18 @@ data SignatureAlgorithm alg where
 
 signatureALG :: SignatureAlgorithm alg -> SignatureALG
 signatureALG sa = case sa of
-  RSA _ hash -> SignatureALG (hashALG hash) PubKeyALG_RSA
-  RSAPSS _ _ hash -> SignatureALG (hashALG hash) PubKeyALG_RSAPSS
-  DSA _ hash -> SignatureALG (hashALG hash) PubKeyALG_DSA
+  RSA hash -> SignatureALG (hashALG hash) PubKeyALG_RSA
+  RSAPSS _ hash -> SignatureALG (hashALG hash) PubKeyALG_RSAPSS
+  DSA hash -> SignatureALG (hashALG hash) PubKeyALG_DSA
   EC _ hash -> SignatureALG (hashALG hash) PubKeyALG_EC
   Ed25519 -> SignatureALG_IntrinsicHash PubKeyALG_Ed25519
   Ed448 -> SignatureALG_IntrinsicHash PubKeyALG_Ed448
 
 getPubKey :: SignatureAlgorithm alg -> Key.Public alg -> PubKey
 getPubKey sa key = case sa of
-  RSA _ _ -> PubKeyRSA key
-  RSAPSS _ _ _ -> PubKeyRSA key
-  DSA _ _ -> PubKeyDSA key
+  RSA _ -> PubKeyRSA key
+  RSAPSS _ _ -> PubKeyRSA key
+  DSA _ -> PubKeyDSA key
   EC name _ -> PubKeyEC (PubKeyEC_Named name pub)
     where
       ECC.Point x y = ECDSA.public_q key

@@ -65,16 +65,16 @@ signCsr csr caPriv issuerName = do
     --   , extensionEncode True $ ExtExtendedKeyUsage [KeyUsagePurpose_ClientAuth]
     --   ]
 
-    sigAlg' = SA.RSA 0 SA.hashSHA256 :: SA.SignatureAlgorithm Key.RSA
+    sigAlg' = SA.RSA SA.hashSHA256 :: SA.SignatureAlgorithm Key.RSA
 
   liftIO $ mkLeaf commonName validity (caPriv, sigAlg', issuerDN) pubKey
 
 -- | Sign @message@ with a signature algorithm and a fitting private key
 sign :: SignatureAlgorithm alg -> Key.Private alg -> B.ByteString -> IO (Either RSA.Error B.ByteString)
 sign sa key message = case sa of
-  SA.RSA _ hash -> RSA.signSafer (Just $ hashAlgorithm hash) key message
-  SA.RSAPSS _ params _ -> PSS.signSafer params key message
-  SA.DSA _ hash -> do
+  SA.RSA hash -> RSA.signSafer (Just $ hashAlgorithm hash) key message
+  SA.RSAPSS params _ -> PSS.signSafer params key message
+  SA.DSA hash -> do
     sig <- DSA.sign key (hashAlgorithm hash) message
     return $ Right $ encodeASN1' DER
       [ Start Sequence
