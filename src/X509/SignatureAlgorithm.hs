@@ -2,9 +2,8 @@ module X509.SignatureAlgorithm where
 
 import qualified Data.ByteString as BS
 
-import Data.X509 (HashALG(..), SignatureALG(..), PubKeyALG(..), PubKey(..), PubKeyEC(..), SerializedPoint(..))
+import Data.X509 (HashALG(..), SignatureALG(..), PubKeyALG(..))
 
-import Crypto.Number.Serialize (i2ospOf_)
 import Crypto.Hash.Algorithms
 import qualified Crypto.PubKey.DSA        as DSA
 import qualified Crypto.PubKey.ECC.ECDSA  as ECDSA
@@ -61,16 +60,8 @@ data SignatureAlgorithm alg where
     => PSS.PSSParams hash BS.ByteString BS.ByteString -> Hash hash
     -> SignatureAlgorithm Key.RSA
 
-  DSA
-    :: HashAlgorithm hash
-    => Hash hash
-    -> SignatureAlgorithm Key.DSA
-
-  EC
-    :: HashAlgorithm hash
-    => ECC.CurveName -> Hash hash
-    -> SignatureAlgorithm Key.ECDSA
-
+  DSA :: HashAlgorithm hash => Hash hash -> SignatureAlgorithm Key.DSA
+  EC :: HashAlgorithm hash => Hash hash -> SignatureAlgorithm Key.ECDSA
   Ed25519 :: SignatureAlgorithm Key.Ed25519
   Ed448 :: SignatureAlgorithm Key.Ed448
 
@@ -79,21 +70,6 @@ signatureALG sa = case sa of
   RSA hash -> SignatureALG (hashALG hash) PubKeyALG_RSA
   RSAPSS _ hash -> SignatureALG (hashALG hash) PubKeyALG_RSAPSS
   DSA hash -> SignatureALG (hashALG hash) PubKeyALG_DSA
-  EC _ hash -> SignatureALG (hashALG hash) PubKeyALG_EC
+  EC hash -> SignatureALG (hashALG hash) PubKeyALG_EC
   Ed25519 -> SignatureALG_IntrinsicHash PubKeyALG_Ed25519
   Ed448 -> SignatureALG_IntrinsicHash PubKeyALG_Ed448
-
-getPubKey :: SignatureAlgorithm alg -> Key.Public alg -> PubKey
-getPubKey sa key = case sa of
-  RSA _ -> PubKeyRSA key
-  RSAPSS _ _ -> PubKeyRSA key
-  DSA _ -> PubKeyDSA key
-  EC name _ -> PubKeyEC (PubKeyEC_Named name pub)
-    where
-      ECC.Point x y = ECDSA.public_q key
-      pub   = SerializedPoint bs
-      bs    = BS.cons 4 (i2ospOf_ bytes x `BS.append` i2ospOf_ bytes y)
-      bits  = ECC.curveSizeBits (ECC.getCurveByName name)
-      bytes = (bits + 7) `div` 8
-  Ed25519 -> PubKeyEd25519 key
-  Ed448 -> PubKeyEd448 key

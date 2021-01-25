@@ -82,7 +82,7 @@ sign sa key message = case sa of
       , IntVal (DSA.sign_s sig)
       , End Sequence
       ]
-  SA.EC _ hash -> do
+  SA.EC hash -> do
     sig <- ECDSA.sign key (hashAlgorithm hash) message
     return $ Right $ encodeASN1' DER
       [ Start Sequence
@@ -135,7 +135,8 @@ mkCertificate version serial dn validity exts (signingKey, algI, issuerDN) tbsPu
     return (algI, signedCert)
 
 mkCA
-  :: Integer                    -- ^ Serial number
+  :: (Key.ToPubKey (Key.Public alg))
+  => Integer                    -- ^ Serial number
   -> String                     -- ^ Common name
   -> (DateTime, DateTime)       -- ^ Validity period
   -> Maybe ExtBasicConstraints  -- ^ Basic constraints
@@ -145,7 +146,7 @@ mkCA
   -> IO (SignatureAlgorithm alg, SignedCertificate)
 mkCA serial cn validity bc ku auth@ (_, sig, _) pub = let
     exts = catMaybes [ mkExtension True <$> bc, mkExtension False <$> ku ]
-    pub' = SA.getPubKey sig pub
+    pub' = Key.toPubKey pub
   in mkCertificate 2 serial (mkCN $ fromString cn) validity exts auth pub'
 
 mkLeaf

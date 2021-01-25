@@ -1,5 +1,11 @@
 module Key where
 
+import Data.List (find)
+import qualified Data.ByteString as BS
+
+import Data.X509 (HashALG(..), SignatureALG(..), PubKeyALG(..), PubKey(..), PubKeyEC(..), SerializedPoint(..))
+import Crypto.Number.Serialize (i2ospOf_)
+
 import qualified Crypto.PubKey.DSA        as DSA
 import qualified Crypto.PubKey.ECC.ECDSA  as ECDSA
 import qualified Crypto.PubKey.ECC.Types  as ECC
@@ -80,10 +86,43 @@ instance Generate Ed448 where
 toPKCS8 :: ToPrivKey key => key -> PEM.PEM
 toPKCS8 = PKCS8.keyToPEM PKCS8.PKCS8Format . toPrivKey
 
--- | Helper class to convert to the Data.X509.PrivKey data type
+-- | Helper class to convert from separate types to the single
+-- Data.X509.PrivKey ADT.
 class ToPrivKey key where toPrivKey :: key -> X509.PrivKey
 instance ToPrivKey RSA.PrivateKey where toPrivKey = X509.PrivKeyRSA
 instance ToPrivKey DSA.PrivateKey where toPrivKey = X509.PrivKeyDSA
 -- instance ToPrivKey ECDSA.PrivateKey where toPrivKey = X509.PrivKeyEC
 instance ToPrivKey Ed25519.SecretKey where toPrivKey = X509.PrivKeyEd25519
 instance ToPrivKey Ed448.SecretKey where toPrivKey = X509.PrivKeyEd448
+
+-- | Helper class to convert from separate types to the single
+-- Data.X509.PubKey ADT.
+class ToPubKey key where toPubKey :: key -> X509.PubKey
+instance ToPubKey RSA.PublicKey where toPubKey = X509.PubKeyRSA
+instance ToPubKey DSA.PublicKey where toPubKey = X509.PubKeyDSA
+
+instance ToPubKey ECDSA.PublicKey where
+  toPubKey key =
+    let
+      curveToCurveName :: ECC.Curve -> Maybe ECC.CurveName
+      curveToCurveName curve = snd <$> maybeResult
+        where
+          allNames = [minBound .. maxBound] :: [ECC.CurveName]
+          allCurvesWithName :: [(ECC.Curve, ECC.CurveName)]
+          allCurvesWithName = map (\name -> (ECC.getCurveByName name, name)) allNames
+          maybeResult :: Maybe (ECC.Curve, ECC.CurveName)
+          maybeResult = find ((== curve). fst) allCurvesWithName
+
+      curveFromKey = ECDSA.public_curve key :: ECC.Curve
+      ECC.Point x y = ECDSA.public_q key
+      pub   = SerializedPoint bs
+      bs    = BS.cons 4 (i2ospOf_ bytes x `BS.append` i2ospOf_ bytes y)
+      bits  = ECC.curveSizeBits curveFromKey
+      bytes = (bits + 7) `div` 8
+
+    in case curveToCurveName curveFromKey of
+      Just name -> PubKeyEC (PubKeyEC_Named name pub)
+      _ -> error "X509.SignatureAlgorithm.getPubKey: can't find ECC.CurveName for ECC.Curve"
+
+instance ToPubKey Ed25519.PublicKey where toPubKey = X509.PubKeyEd25519
+instance ToPubKey Ed448.PublicKey where toPubKey = X509.PubKeyEd448
