@@ -67,3 +67,6 @@ executables:
   openhell:
     source-dirs: exe
     main: Main.hs
+    dependencies: openhell
+    other-modules:
+    - CLI.Key

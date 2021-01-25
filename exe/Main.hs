@@ -15,6 +15,10 @@ import qualified Data.X509 as X509
 import qualified Crypto.Store.PKCS8 as PKCS8
 import qualified Data.X509.PKCS10 as PKCS10
 
+import qualified Key
+
+import CLI.Key
+
 -- * Options
 
 data Options = Options
@@ -31,27 +35,17 @@ data Command
 
 -- ** Key
 
-data KeyOptions
-  = KeyGenerate' KeyGenerate
-  | KeyRead' KeyRead
-  deriving (Show)
+data KeyOptions where
+  KeyGenerate' :: KeyGenerate -> KeyOptions
+  KeyRead' :: KeyRead -> KeyOptions
 
-data KeyGenerate = KeyGenerate
-  { bits :: Int
-  } deriving (Show)
+instance Show (Key.Conf alg) where show _ = "Key.Conf alg" -- temporary
+deriving instance Show KeyOptions
+deriving instance Show KeyGenerate
 
 data KeyRead = KeyRead
   { files :: [FilePath]
   } deriving (Show)
-
-keyGenerateP :: Parser KeyGenerate
-keyGenerateP = KeyGenerate
-  <$> option auto
-      ( long "bits"
-     <> metavar "INT"
-     <> showDefault
-     <> value 2048
-     <> help "Key size in bits" )
 
 keyReadP :: Parser KeyRead
 keyReadP = KeyRead <$>
@@ -59,7 +53,9 @@ keyReadP = KeyRead <$>
 
 keyCmdP :: Parser KeyOptions
 keyCmdP = KeyRead' <$> keyReadP
-     <|> KeyGenerate' <$> keyGenerateP
+  <|> KeyGenerate' <$> keyGenerateP
+
+-- *** Generate
 
 -- ** Certificate signing request
 
@@ -119,19 +115,20 @@ sign o = earlyExit $ do
     certify :: X509.PrivKey -> PKCS10.SignedCertificationRequest -> X509.SignedCertificate
     certify k p = undefined
 
-
-
 -- * Key
 
 keyGenerate :: KeyGenerate -> IO ()
-keyGenerate o = do
-  let bytes = div (bits o) 8
-  (pub, priv) <- RSA.generate bytes 65537
-  let
-    priv' = X509.PrivKeyRSA priv
-    pem :: PEM.PEM
-    pem = PKCS8.keyToPEM PKCS8.PKCS8Format priv'
-  BS.putStr $ PEM.pemWriteBS pem
+keyGenerate o = case o of
+  KeyGenerateRSA conf -> generateAndPrint conf
+  KeyGenerateEd448 conf -> generateAndPrint conf
+  KeyGenerateEd25519 conf -> generateAndPrint conf
+  where
+    generateAndPrint
+      :: (Key.Generate alg, Key.ToPrivKey (Key.Private alg))
+      => Key.Conf alg -> IO ()
+    generateAndPrint conf = do
+      (_, priv) <- Key.generate conf
+      BS.putStr $ PEM.pemWriteBS $ Key.toPKCS8 priv
 
 keyRead :: KeyRead -> IO ()
 keyRead o = earlyExit $ do
