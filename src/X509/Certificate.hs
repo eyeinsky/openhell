@@ -8,13 +8,14 @@ import Control.Monad.Except
 
 import Time.System as Time
 import Time.Types as Time
-import Data.X509 hiding (Certificate)
+import Data.X509 hiding (Certificate, Extension)
 import qualified Data.X509.PKCS10 as PKCS10
 import qualified Data.X509 as X509
 import qualified Crypto.PubKey.RSA as RSA
 import Data.ASN1.Types
 
 import qualified X509.Signature as Signature
+import X509.Extensions
 import qualified Key
 
 signCsr
@@ -42,15 +43,6 @@ signCsr csr caPriv issuerName = do
 
     sigAlg' = Signature.RSA Signature.hashSHA256 :: Signature.Algorithm Key.RSA
 
-    -- | Default extensions in leaf certificates.
-    leafStdExts :: [ExtensionRaw]
-    leafStdExts = [ku, eku]
-      where
-        ku  = mkExtension False $ ExtKeyUsage
-                   [ KeyUsage_digitalSignature , KeyUsage_keyEncipherment ]
-        eku = mkExtension False $ ExtExtendedKeyUsage
-                   [ KeyUsagePurpose_ServerAuth , KeyUsagePurpose_ClientAuth ]
-
     tbs :: TBS
     tbs = X509.Certificate
       { certVersion = 2
@@ -60,7 +52,9 @@ signCsr csr caPriv issuerName = do
       , certSubjectDN = mkCN $ fromString commonName
       , certIssuerDN = mkCN issuerName
 
-      , certExtensions = Extensions $ if null leafStdExts then Nothing else Just leafStdExts
+      , certExtensions = extensions
+          $ digitalSignature <> keyEncipherment
+          <> serverAuth <> clientAuth
       }
 
   liftIO $ mkLeaf tbs caPriv sigAlg' pubKey
@@ -108,7 +102,3 @@ mkLeaf tbs priv sigAlg pub = mkCertificate tbs priv sigAlg pub
 -- | Builds a DN with a single component.
 mkCN :: ASN1CharacterString -> DistinguishedName
 mkCN cn = DistinguishedName [(getObjectID DnCommonName, cn)]
-
--- | Used to build a certificate extension.
-mkExtension :: Extension a => Bool -> a -> ExtensionRaw
-mkExtension crit ext = ExtensionRaw (extOID ext) crit (extEncodeBs ext)

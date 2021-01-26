@@ -24,6 +24,7 @@ library:
   exposed-modules:
   - X509.Certificate
   - X509.Signature
+  - X509.Extensions
   - Key
 
 executables:
