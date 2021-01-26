@@ -1,36 +1,20 @@
 module X509.Certificate where
 
-import Data.ASN1.Types
 import Data.List
-import Control.Monad.IO.Class
+import Data.Maybe
+import Data.String
+import qualified Data.ByteString as BS
 import Control.Monad.Except
 
 import Time.System as Time
 import Time.Types as Time
-
-import Data.X509 hiding (Certificate) -- fixme
+import Data.X509 hiding (Certificate)
 import qualified Data.X509.PKCS10 as PKCS10
 import qualified Data.X509 as X509
+import qualified Crypto.PubKey.RSA as RSA
+import Data.ASN1.Types
 
--- hs-certificate tests Certificate.hs
-import qualified Crypto.PubKey.DSA        as DSA
-import qualified Crypto.PubKey.ECC.ECDSA  as ECDSA
-import qualified Crypto.PubKey.Ed25519    as Ed25519
-import qualified Crypto.PubKey.Ed448      as Ed448
-import qualified Crypto.PubKey.RSA        as RSA
-import qualified Crypto.PubKey.RSA.PKCS15 as RSA
-import qualified Crypto.PubKey.RSA.PSS    as PSS
-
-import qualified Data.ByteString as B
-import Data.Maybe
-import Data.String
-import Data.ASN1.Encoding
-import Data.ByteArray (convert)
-import Data.ASN1.BinaryEncoding (DER(..))
-
-import qualified X509.SignatureAlgorithm as SA
-import X509.SignatureAlgorithm (SignatureAlgorithm, hashAlgorithm)
-
+import qualified X509.Signature as Signature
 import qualified Key
 
 signCsr
@@ -38,7 +22,7 @@ signCsr
   => PKCS10.SignedCertificationRequest
   -> RSA.PrivateKey -> ASN1CharacterString
   -> ExceptT String m
-  (SignatureAlgorithm Key.RSA, X509.SignedCertificate)
+  (Signature.Algorithm Key.RSA, X509.SignedCertificate)
 signCsr csr caPriv issuerName = do
   commonName :: String <- maybe (throwError "") return $ do
     let PKCS10.X520Attributes xs = PKCS10.subject $ PKCS10.certificationRequestInfo $ PKCS10.certificationRequest csr :: PKCS10.X520Attributes
@@ -65,37 +49,13 @@ signCsr csr caPriv issuerName = do
     --   , extensionEncode True $ ExtExtendedKeyUsage [KeyUsagePurpose_ClientAuth]
     --   ]
 
-    sigAlg' = SA.RSA SA.hashSHA256 :: SA.SignatureAlgorithm Key.RSA
+    sigAlg' = Signature.RSA Signature.hashSHA256 :: Signature.Algorithm Key.RSA
 
   liftIO $ mkLeaf commonName validity (caPriv, sigAlg', issuerDN) pubKey
 
--- | Sign @message@ with a signature algorithm and a fitting private key
-sign :: SignatureAlgorithm alg -> Key.Private alg -> B.ByteString -> IO (Either RSA.Error B.ByteString)
-sign sa key message = case sa of
-  SA.RSA hash -> RSA.signSafer (Just $ hashAlgorithm hash) key message
-  SA.RSAPSS params _ -> PSS.signSafer params key message
-  SA.DSA hash -> do
-    sig <- DSA.sign key (hashAlgorithm hash) message
-    return $ Right $ encodeASN1' DER
-      [ Start Sequence
-      , IntVal (DSA.sign_r sig)
-      , IntVal (DSA.sign_s sig)
-      , End Sequence
-      ]
-  SA.EC hash -> do
-    sig <- ECDSA.sign key (hashAlgorithm hash) message
-    return $ Right $ encodeASN1' DER
-      [ Start Sequence
-      , IntVal (ECDSA.sign_r sig)
-      , IntVal (ECDSA.sign_s sig)
-      , End Sequence
-      ]
-  SA.Ed25519 -> return $ Right $ convert $ Ed25519.sign key (Ed25519.toPublic key) message
-  SA.Ed448 -> return $ Right $ convert $ Ed448.sign key (Ed448.toPublic key) message
-
 -- * New system
 
-type Authority alg = (Key.Private alg, SignatureAlgorithm alg, DistinguishedName)
+type Authority alg = (Key.Private alg, Signature.Algorithm alg, DistinguishedName)
 
 -- | Builds a certificate using the supplied keys and signs it with an
 -- authority (itself or another certificate).
@@ -108,15 +68,15 @@ mkCertificate
   -> [ExtensionRaw]             -- ^ Extensions to include
   -> Authority alg           -- ^ Authority signing the new certificate
   -> PubKey                     -- ^ Keys for the new certificate
-  -> IO (SignatureAlgorithm alg, SignedCertificate)       -- ^ The new certificate/key pair
+  -> IO (Signature.Algorithm alg, SignedCertificate)       -- ^ The new certificate/key pair
 mkCertificate version serial dn validity exts (signingKey, algI, issuerDN) tbsPub = let
 
-    signAlgI = SA.signatureALG algI :: SignatureALG
+    signAlgI = Signature.signatureALG algI :: SignatureALG
     extensions = Extensions (if null exts then Nothing else Just exts) :: Extensions
 
-    signatureFunction :: B.ByteString -> IO (B.ByteString, SignatureALG)
+    signatureFunction :: BS.ByteString -> IO (BS.ByteString, SignatureALG)
     signatureFunction objRaw = do
-      sigBits <- either (error . show) return =<< sign algI signingKey objRaw
+      sigBits <- either (error . show) return =<< Signature.sign algI signingKey objRaw
       return (sigBits, signAlgI)
 
     tbs = X509.Certificate
@@ -143,7 +103,7 @@ mkCA
   -> Maybe ExtKeyUsage          -- ^ Key usage
   -> Authority alg           -- ^ Authority. CA is self-signed, so authority cryptosystem matches to-be-signed's
   -> Key.Public alg                       -- ^ Public key of the certificate
-  -> IO (SignatureAlgorithm alg, SignedCertificate)
+  -> IO (Signature.Algorithm alg, SignedCertificate)
 mkCA serial cn validity bc ku auth@ (_, sig, _) pub = let
     exts = catMaybes [ mkExtension True <$> bc, mkExtension False <$> ku ]
     pub' = Key.toPubKey pub
@@ -154,7 +114,7 @@ mkLeaf
   -> (DateTime, DateTime) -- ^ Certificate validity period
   -> Authority alg     -- ^ Authority signing the new certificate
   -> PubKey
-  -> IO (SignatureAlgorithm alg, SignedCertificate)       -- ^ The new leaf certificate/key pair
+  -> IO (Signature.Algorithm alg, SignedCertificate)       -- ^ The new leaf certificate/key pair
 mkLeaf cn validity auth pub = mkCertificate 2 100 (mkCN $ fromString cn) validity leafStdExts auth pub
   where
     -- | Default extensions in leaf certificates.

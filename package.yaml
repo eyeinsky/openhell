@@ -23,7 +23,7 @@ library:
   source-dirs: src
   exposed-modules:
   - X509.Certificate
-  - X509.SignatureAlgorithm
+  - X509.Signature
   - Key
 
 executables:
