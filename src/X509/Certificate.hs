@@ -67,11 +67,11 @@ mkCertificate
   -> Key.Private alg -> Signature.Algorithm alg
   -> PubKey
   -> IO (Signature.Algorithm alg, SignedCertificate)       -- ^ The new certificate/key pair
-mkCertificate tbs signingKey algI tbsPub = let
-    signAlgI = Signature.signatureALG algI :: SignatureALG
+mkCertificate tbs signingKey sigAlg tbsPub = let
+    signAlgI = Signature.signatureALG sigAlg :: SignatureALG
     signatureFunction :: BS.ByteString -> IO (BS.ByteString, SignatureALG)
     signatureFunction objRaw = do
-      sigBits <- either (error . show) return =<< Signature.sign algI signingKey objRaw
+      sigBits <- either (error . show) return =<< Signature.sign sigAlg signingKey objRaw
       return (sigBits, signAlgI)
 
     tbs' = tbs
@@ -80,7 +80,7 @@ mkCertificate tbs signingKey algI tbsPub = let
       }
   in do
     signedCert :: SignedCertificate <- objectToSignedExactF signatureFunction tbs'
-    return (algI, signedCert)
+    return (sigAlg, signedCert)
 
 mkCA
   :: (Key.ToPubKey (Key.Public alg))
