@@ -21,32 +21,25 @@ import qualified Key
 
 type TBS = X509.Certificate
 
-mkCertificate
-  :: TBS
-  -> Key.Private alg -> Signature.Algorithm alg
-  -> PubKey
-  -> IO (Signature.Algorithm alg, SignedCertificate)       -- ^ The new certificate/key pair
+mkCertificate :: TBS -> Key.Private alg -> Signature.Algorithm alg -> PubKey -> IO SignedCertificate
 mkCertificate tbs signingKey sigAlg tbsPub = let
     signAlgI = Signature.signatureALG sigAlg :: SignatureALG
     signatureFunction :: BS.ByteString -> IO (BS.ByteString, SignatureALG)
     signatureFunction objRaw = do
       sigBits <- either (error . show) return =<< Signature.sign sigAlg signingKey objRaw
       return (sigBits, signAlgI)
-
     tbs' = tbs
       { certSignatureAlg = signAlgI
       , certPubKey       = tbsPub
       }
-  in do
-    signedCert :: SignedCertificate <- objectToSignedExactF signatureFunction tbs'
-    return (sigAlg, signedCert)
+  in objectToSignedExactF signatureFunction tbs'
 
 mkCA
   :: (Key.ToPubKey (Key.Public alg))
   => TBS
   -> Key.Private alg -> Signature.Algorithm alg -- authority
   -> Key.Public alg
-  -> IO (Signature.Algorithm alg, SignedCertificate)
+  -> IO SignedCertificate
 mkCA tbs priv sigAlg pub = mkCertificate tbs priv sigAlg (Key.toPubKey pub)
 
 -- * Helpers
