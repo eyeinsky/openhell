@@ -18,47 +18,6 @@ import qualified X509.Signature as Signature
 import X509.Extensions
 import qualified Key
 
-signCsr
-  :: (Monad m, MonadIO m)
-  => PKCS10.SignedCertificationRequest
-  -> RSA.PrivateKey -> ASN1CharacterString
-  -> ExceptT String m
-  (Signature.Algorithm Key.RSA, X509.SignedCertificate)
-signCsr csr caPriv issuerName = do
-  commonName :: String <- maybe (throwError "") return $ do
-    let PKCS10.X520Attributes xs = PKCS10.subject $ PKCS10.certificationRequestInfo $ PKCS10.certificationRequest csr :: PKCS10.X520Attributes
-    (_, cn) <- find ((PKCS10.X520CommonName ==) . fst) xs
-    asn1CharacterToString cn
-
-  now <- liftIO $ Time.dateCurrent
-
-  let
-    date = Time.dtDate now
-    date' = date { Time.dateYear = (Time.dateYear date + 1) }
-    until = now { Time.dtDate = date' }
-    validity = (now, until) :: (DateTime, DateTime)
-
-    pubKey :: X509.PubKey
-    pubKey = PKCS10.subjectPublicKeyInfo $ PKCS10.certificationRequestInfo $ PKCS10.certificationRequest csr
-
-    sigAlg' = Signature.RSA Signature.hashSHA256 :: Signature.Algorithm Key.RSA
-
-    tbs :: TBS
-    tbs = X509.Certificate
-      { certVersion = 2
-      , certSerial = 100
-      , certValidity = validity
-
-      , certSubjectDN = mkCN $ fromString commonName
-      , certIssuerDN = mkCN issuerName
-
-      , certExtensions = extensions
-          $ digitalSignature <> keyEncipherment
-          <> serverAuth <> clientAuth
-      }
-
-  liftIO $ mkLeaf tbs caPriv sigAlg' pubKey
-
 
 type TBS = X509.Certificate
 
