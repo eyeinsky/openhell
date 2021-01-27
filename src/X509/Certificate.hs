@@ -49,13 +49,6 @@ mkCA
   -> IO (Signature.Algorithm alg, SignedCertificate)
 mkCA tbs priv sigAlg pub = mkCertificate tbs priv sigAlg (Key.toPubKey pub)
 
-mkLeaf
-  :: TBS
-  -> Key.Private alg -> Signature.Algorithm alg -- authority
-  -> PubKey
-  -> IO (Signature.Algorithm alg, SignedCertificate)
-mkLeaf tbs priv sigAlg pub = mkCertificate tbs priv sigAlg pub
-
 -- * Helpers
 
 -- | Builds a DN with a single component.
