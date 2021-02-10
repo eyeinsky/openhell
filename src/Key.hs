@@ -80,9 +80,9 @@ instance Generate Ed448 where
     secret <- Ed448.generateSecretKey
     return (Ed448.toPublic secret, secret)
 
--- * Serialize
+-- * Convert typed keys to ADTs from x509:Data.X509
 
--- | Convert keys into PKCS#8 PEM.
+-- | Serialize any private key to PKCS#8 PEM.
 toPKCS8 :: ToPrivKey key => key -> PEM.PEM
 toPKCS8 = PKCS8.keyToPEM PKCS8.PKCS8Format . toPrivKey
 
