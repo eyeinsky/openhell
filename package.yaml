@@ -18,6 +18,7 @@ dependencies:
 - asn1-types
 - memory
 - hourglass
+- text
 
 library:
   source-dirs: src

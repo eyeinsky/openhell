@@ -35,6 +35,7 @@ library
     , optparse-applicative
     , pem
     , pkcs10
+    , text
     , x509
   default-language: Haskell2010
 
@@ -59,5 +60,6 @@ executable openhell
     , optparse-applicative
     , pem
     , pkcs10
+    , text
     , x509
   default-language: Haskell2010
