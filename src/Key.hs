@@ -1,7 +1,13 @@
 module Key where
 
-import Data.List (find)
+import qualified Data.List as P
+import qualified Data.Either as P
+import qualified Data.Maybe as P
 import qualified Data.ByteString as BS
+import qualified Data.Text as TS
+import qualified Data.Text.Encoding as TS
+import qualified Data.ByteArray.Encoding as E
+import Control.Monad.Error
 
 import Data.X509 (HashALG(..), SignatureALG(..), PubKeyALG(..), PubKey(..), PubKeyEC(..), SerializedPoint(..))
 import Crypto.Number.Serialize (i2ospOf_)
@@ -111,7 +117,7 @@ instance ToPubKey ECDSA.PublicKey where
           allCurvesWithName :: [(ECC.Curve, ECC.CurveName)]
           allCurvesWithName = map (\name -> (ECC.getCurveByName name, name)) allNames
           maybeResult :: Maybe (ECC.Curve, ECC.CurveName)
-          maybeResult = find ((== curve). fst) allCurvesWithName
+          maybeResult = P.find ((== curve). fst) allCurvesWithName
 
       curveFromKey = ECDSA.public_curve key :: ECC.Curve
       ECC.Point x y = ECDSA.public_q key
@@ -126,3 +132,53 @@ instance ToPubKey ECDSA.PublicKey where
 
 instance ToPubKey Ed25519.PublicKey where toPubKey = X509.PubKeyEd25519
 instance ToPubKey Ed448.PublicKey where toPubKey = X509.PubKeyEd448
+
+-- * Parse
+
+allPemHeaders :: [String]
+allPemHeaders =
+  [ "PRIVATE KEY"
+  , "RSA PRIVATE KEY"
+  , "DSA PRIVATE KEY"
+  , "EC PRIVATE KEY"
+  , "X25519 PRIVATE KEY"
+  , "X448 PRIVATE KEY"
+  , "ED25519 PRIVATE KEY"
+  , "ED448 PRIVATE KEY"
+  , "ENCRYPTED PRIVATE KEY"
+  ]
+
+-- | Parse private key without PEM headers
+parseHeaderless :: TS.Text -> Either String [PKCS8.OptProtected X509.PrivKey]
+parseHeaderless ts = do
+  bs :: BS.ByteString <- fromBase64 ts
+  let
+    possiblePems :: [PEM.PEM]
+    possiblePems = (\header -> PEM.PEM header [] bs) <$> allPemHeaders
+
+    keys :: [PKCS8.OptProtected X509.PrivKey]
+    keys = P.catMaybes . foldr (flip PKCS8.pemToKey) [] $ possiblePems
+
+    cmp (PKCS8.Unprotected a) (PKCS8.Unprotected b) = a == b
+    cmp _ _ = False
+
+  return $ P.nubBy cmp keys
+  where
+    -- pemToKey
+    --   :: [Maybe (OptProtected PrivKey)] -> PEM -> [Maybe (OptProtected PrivKey)]
+    tryParse :: PEM.PEM -> Either String (PKCS8.OptProtected X509.PrivKey)
+    tryParse pem = do
+      case PKCS8.pemToKey [] pem of
+        _ : _ : _ -> throwError "More than one PEM (should be impossible)"
+        [Nothing] -> throwError "Can't parse private key"
+        [] -> throwError "No private key"
+        [Just optProtected] -> return optProtected
+
+-- https://hackage.haskell.org/package/x509-store-1.6.7/docs/Data-X509-Memory.html
+-- https://hackage.haskell.org/package/cryptostore-0.2.1.0/docs/src/Crypto.Store.PKCS8.html#OptProtected
+
+-- * Helpers
+
+-- | Convert base64 text to bytestring
+fromBase64 :: TS.Text -> Either String BS.ByteString
+fromBase64 ts = E.convertFromBase E.Base64 (TS.encodeUtf8 ts)
