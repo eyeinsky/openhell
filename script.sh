@@ -19,40 +19,40 @@ just_pem() {
 
 # PKCS #12
 
-p12_extract_cert() {
+p12_get_crt() {
     local p12="$1"
     local password="$2"
-    openssl pkcs12 -info -in $p12 -nokeys -password "pass:$password" \
+    openssl pkcs12 -info -in "$p12" -nokeys -password "pass:$password" \
             2>/dev/null | just_pem
 }
 
-p12_extract_key() {
+p12_get_key() {
     local p12="$1"
     local password="$2"
-    openssl pkcs12 -info -in $p12 -nodes -nocerts -password "pass:$password" \
+    openssl pkcs12 -info -in "$p12" -nodes -nocerts -password "pass:$password" \
             2>/dev/null | just_pem
 }
 
 # PKCS #1
 
-key_extract_pub() {
+key_get_pub() {
     local key="$1"
     openssl rsa -in "$key" -pubout
 }
 
-cert_verify() {
+crt_verify() {
     local ca="$1"
     local cert="$2"
     openssl verify -verbose -CAfile "$ca" "$cert"
 }
 
-p12_show_cert() {
+p12_show_crt() {
     local p12="$1"
     local pw="$2"
     p12_extract_cert "$p12" "$pw" | openssl x509 -text
 }
 
-cert_matches_private_key() {
+crt_matches_key() {
     local cert="$1"
     local key="$2"
     local res="$(diff \
@@ -95,11 +95,11 @@ server_chain() {
 
 # Info/non machine-readable output
 
-crt_info() {
+crt_show() {
     openssl x509 -text -noout -in "$1"
 }
 
-csr_info() {
+csr_show() {
     openssl req -text -noout -in "$1"
 }
 
