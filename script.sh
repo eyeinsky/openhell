@@ -16,6 +16,11 @@ just_pem() {
     between '-----BEGIN ' '-----END '
 }
 
+pem_wrap() {
+    local header="$1"
+    local content="$2"
+    echo -e "-----BEGIN $header-----\n$content-----END $header-----"
+}
 
 # PKCS #12
 
@@ -66,6 +71,18 @@ crt_matches_key() {
         exit 1
     fi
 }
+
+key_to_oneline() {
+    local key="$1"
+    cat "$key" | just_pem | grep -vP -- '-----(BEGIN|END)' | tr -d '\n'
+    echo
+}
+
+# key_from_oneline() {
+#     if [[ -f "$1" ]]; then
+#         local key="$(cat $1)"
+#     else if [[ ]]
+# }
 
 # Verify that $1 was used to sign $2
 cert_signed_cert() {
