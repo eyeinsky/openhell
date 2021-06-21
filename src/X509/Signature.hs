@@ -13,8 +13,6 @@ import Crypto.Hash.Algorithms
 
 import qualified Crypto.PubKey.DSA        as DSA
 import qualified Crypto.PubKey.ECC.ECDSA  as ECDSA
-import qualified Crypto.PubKey.ECC.Types  as ECC
-import qualified Crypto.PubKey.ECC.Generate as ECC
 import qualified Crypto.PubKey.Ed25519    as Ed25519
 import qualified Crypto.PubKey.Ed448      as Ed448
 import qualified Crypto.PubKey.RSA        as RSA

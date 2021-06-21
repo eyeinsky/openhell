@@ -2,15 +2,13 @@ module Key where
 
 import Prelude
 import qualified Data.List as P
-import qualified Data.Either as P
 import qualified Data.Maybe as P
 import qualified Data.ByteString as BS
 import qualified Data.Text as TS
 import qualified Data.Text.Encoding as TS
 import qualified Data.ByteArray.Encoding as E
-import Control.Monad.Except
 
-import Data.X509 (HashALG(..), SignatureALG(..), PubKeyALG(..), PubKey(..), PubKeyEC(..), SerializedPoint(..))
+import Data.X509 (PubKey(..), PubKeyEC(..), SerializedPoint(..))
 import Crypto.Number.Serialize (i2ospOf_)
 
 import qualified Crypto.PubKey.DSA        as DSA
@@ -20,8 +18,6 @@ import qualified Crypto.PubKey.ECC.Generate as ECC
 import qualified Crypto.PubKey.Ed25519    as Ed25519
 import qualified Crypto.PubKey.Ed448      as Ed448
 import qualified Crypto.PubKey.RSA        as RSA
-import qualified Crypto.PubKey.RSA.PKCS15 as RSA
-import qualified Crypto.PubKey.RSA.PSS    as PSS
 
 import qualified Data.PEM as PEM
 import qualified Crypto.Store.PKCS8 as PKCS8

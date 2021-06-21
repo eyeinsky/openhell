@@ -2,18 +2,11 @@ module X509.Certificate where
 
 import Prelude
 import qualified Data.ByteString as BS
-import Control.Monad.Except
-
-import Time.System as Time
-import Time.Types as Time
 import Data.X509 hiding (Certificate, Extension)
-import qualified Data.X509.PKCS10 as PKCS10
 import qualified Data.X509 as X509
-import qualified Crypto.PubKey.RSA as RSA
 import Data.ASN1.Types
 
 import qualified X509.Signature as Signature
-import X509.Extensions
 import qualified Key
 
 
