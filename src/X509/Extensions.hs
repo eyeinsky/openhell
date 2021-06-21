@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
 module X509.Extensions
   -- | Render
   ( extensions
@@ -26,158 +25,207 @@ module X509.Extensions
 
 import Prelude
 import Data.Maybe
+import Data.Coerce
 import qualified Data.ByteString as BS
-
-import Data.X509 hiding (Extension, Extensions)
 import qualified Data.X509 as X509
 import qualified Data.ASN1.OID as ASN1
 
-type Extension = (Bool, Extension')
+-- * DSL
 
-critical :: [Extension] -> [Extension]
+-- | Extension wrapper with criticality
+data Extension a = Extension Bool a
+
+-- | Render extensions to the type the x509 package expecs
+extensions :: [Extension Untyped] -> X509.Extensions
+extensions es = let
+  (a, b, c, d, e, f) = collect es :: GroupedExtensions
+  rawAndSetExtensions :: [X509.ExtensionRaw]
+  rawAndSetExtensions = catMaybes [fmap encode a, fmap encode b, fmap encode c, fmap encode d, fmap encode e, fmap encode f]
+  in case rawAndSetExtensions of
+    _ : _ -> X509.Extensions $ Just rawAndSetExtensions
+    _ -> X509.Extensions Nothing
+  where
+    encode
+      :: forall from to. (FromNewtype from ~ to, X509.Extension to, Coercible from to)
+      => Extension from -> X509.ExtensionRaw
+    encode (Extension critical extension) = X509.extensionEncode critical (coerce extension :: to)
+
+-- ** Key usage
+
+digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+  , keyAgreement, keyCertSign, cRLSign, encipherOnly, decipherOnly :: [Extension Untyped]
+digitalSignature = mkKeyUsage X509.KeyUsage_digitalSignature
+nonRepudiation = mkKeyUsage X509.KeyUsage_nonRepudiation
+keyEncipherment = mkKeyUsage X509.KeyUsage_keyEncipherment
+dataEncipherment = mkKeyUsage X509.KeyUsage_dataEncipherment
+keyAgreement = mkKeyUsage X509.KeyUsage_keyAgreement
+keyCertSign = mkKeyUsage X509.KeyUsage_keyCertSign
+cRLSign = mkKeyUsage X509.KeyUsage_cRLSign
+encipherOnly = mkKeyUsage X509.KeyUsage_encipherOnly
+decipherOnly = mkKeyUsage X509.KeyUsage_decipherOnly
+
+-- ** Extended key usage
+
+serverAuth, clientAuth, codeSigning, emailProtection, timeStamping, oCSPSigning :: [Extension Untyped]
+serverAuth = mkExtendedKeyUsage X509.KeyUsagePurpose_ServerAuth
+clientAuth = mkExtendedKeyUsage X509.KeyUsagePurpose_ClientAuth
+codeSigning = mkExtendedKeyUsage X509.KeyUsagePurpose_CodeSigning
+emailProtection = mkExtendedKeyUsage X509.KeyUsagePurpose_EmailProtection
+timeStamping = mkExtendedKeyUsage X509.KeyUsagePurpose_TimeStamping
+oCSPSigning = mkExtendedKeyUsage X509.KeyUsagePurpose_OCSPSigning
+
+extendedKeyUsageUnknown :: ASN1.OID -> [Extension Untyped]
+extendedKeyUsageUnknown oid = mkExtendedKeyUsage (X509.KeyUsagePurpose_Unknown oid)
+
+-- ** Subject and authority key ID
+
+subjectKeyId :: BS.ByteString -> [Extension Untyped]
+subjectKeyId bs = mkCritical $ SubjectKeyId $ coerce $ X509.ExtSubjectKeyId bs
+
+authorityKeyId :: BS.ByteString -> [Extension Untyped]
+authorityKeyId bs = mkCritical $ AuthorityKeyId $ coerce $ X509.ExtAuthorityKeyId bs
+
+-- ** Subject Alternative Name
+
+subjectAltName :: X509.AltName -> [Extension Untyped]
+subjectAltName altName = mkCritical $ SubjectAltName $ coerce $ X509.ExtSubjectAltName [altName]
+
+rfc822 :: String -> X509.AltName
+rfc822 str = X509.AltNameRFC822 str
+
+dns :: String -> X509.AltName
+dns str = X509.AltNameDNS str
+
+uri :: String -> X509.AltName
+uri str = X509.AltNameURI str
+
+ip :: BS.ByteString -> X509.AltName
+ip bs = X509.AltNameIP bs
+
+xmpp :: String -> X509.AltName
+xmpp str = X509.AltNameXMPP str
+
+dnssrv :: String -> X509.AltName
+dnssrv str = X509.AltNameDNSSRV str
+
+critical :: [Extension Untyped] -> [Extension Untyped]
 critical extensions = map f extensions
-  where f (_, extension) = (True, extension)
+  where f (Extension _ extension) = Extension True extension
 
-nonCritical :: [Extension] -> [Extension]
+nonCritical :: [Extension Untyped] -> [Extension Untyped]
 nonCritical extensions = map f extensions
-  where f (_, extension) = (False, extension)
+  where f (Extension _ extension) = Extension False extension
+
+-- * Internal
 
 -- | This is the fan-in ADT for the various extensions
-data Extension'
+data Untyped
   = BasicConstraint ExtBasicConstraints
   | KeyUsage ExtKeyUsage
   | ExtendedKeyUsage ExtExtendedKeyUsage
   | SubjectKeyId ExtSubjectKeyId
   | SubjectAltName ExtSubjectAltName
   | AuthorityKeyId ExtAuthorityKeyId
-  -- | CrlDistributionPoints ExtCrlDistributionPoints
-  -- | NetscapeComment ExtNetscapeComment
+  -- | CrlDistributionPoints X509.ExtCrlDistributionPoints
+  -- | NetscapeComment X509.ExtNetscapeComment
   deriving (Eq, Show)
 
--- | Render extensions to the type the x509 package expecs
-extensions :: [Extension] -> X509.Extensions
-extensions es = let
-  (a, b, c, d, e, f) = collect es
-  rawAndSetExtensions = catMaybes [fmap encode a, fmap encode b, fmap encode c, fmap encode d, fmap encode e, fmap encode f]
-  in case rawAndSetExtensions of
-    _ : _ -> X509.Extensions $ Just rawAndSetExtensions
-    _ -> X509.Extensions Nothing
-
-  where
-    encode :: forall e. X509.Extension e => (Bool, e) -> ExtensionRaw
-    encode (critical, extension) = extensionEncode critical extension
-
 -- | Collect repeated extensions to groups by extension type
-collect :: [Extension] -> GroupedExtensions
+collect :: [Extension Untyped] -> GroupedExtensions
 collect exts = foldl go emptyCollector exts
   where
-    addExt :: Semigroup a => Maybe (Bool, a) -> (Bool, a) -> Maybe (Bool, a)
-    addExt maybeSum ext'@ (crit, ext) = maybe (Just ext') (\(_, z) -> Just (crit, z <> ext)) maybeSum
+    merge :: Semigroup a => Maybe (Extension a) -> Bool -> a -> Maybe (Extension a)
+    merge acc criticality newExt = case acc of
+      Nothing -> Just $ Extension criticality newExt
+      Just (Extension _ oldExt) -> Just $ Extension criticality $ oldExt <> newExt
 
-    go :: GroupedExtensions -> (Bool, Extension') -> GroupedExtensions
-    go (a, b, c, d, e, f) (critical, extension) = case extension of
-      BasicConstraint bc -> (addExt a (critical, bc), b, c, d, e, f)
-      KeyUsage ku -> (a, addExt b (critical, ku), c, d, e, f)
-      ExtendedKeyUsage eku -> (a, b, addExt c (critical, eku), d, e, f)
-      SubjectKeyId ski -> (a, b, c, addExt d (critical, ski), e, f)
-      SubjectAltName san -> (a, b, c, d, addExt e (critical, san), f)
-      AuthorityKeyId aki -> (a, b, c, d, e, addExt f (critical, aki))
+    go :: GroupedExtensions -> Extension Untyped -> GroupedExtensions
+    go (a, b, c, d, e, f) (Extension critical untyped) = case untyped of
+      BasicConstraint typed -> (a <> Just (Extension critical typed), b, c, d, e, f)
+      KeyUsage ku -> (a, merge b critical ku, c, d, e, f)
+      ExtendedKeyUsage eku -> (a, b, merge c critical eku, d, e, f)
+      SubjectKeyId ski -> (a, b, c, merge d critical ski, e, f)
+      SubjectAltName san -> (a, b, c, d, merge e critical san, f)
+      AuthorityKeyId aki -> (a, b, c, d, e, merge f critical aki)
 
     emptyCollector :: GroupedExtensions
     emptyCollector = (Nothing, Nothing, Nothing, Nothing, Nothing, Nothing)
 
-type F a = Maybe (Bool, a)
+type F a = Maybe (Extension a)
 type GroupedExtensions = (F ExtBasicConstraints, F ExtKeyUsage, F ExtExtendedKeyUsage, F ExtSubjectKeyId, F ExtSubjectAltName, F ExtAuthorityKeyId)
 
--- * Key usage
+-- ** Helpers
 
-mkKeyUsage :: ExtKeyUsageFlag -> [Extension]
-mkKeyUsage flag = [(True, KeyUsage $ ExtKeyUsage [flag])]
+mkCritical :: Untyped -> [Extension Untyped]
+mkCritical extension' = [Extension True extension']
 
-digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-  , keyAgreement, keyCertSign, cRLSign, encipherOnly, decipherOnly :: [Extension]
-digitalSignature = mkKeyUsage KeyUsage_digitalSignature
-nonRepudiation = mkKeyUsage KeyUsage_nonRepudiation
-keyEncipherment = mkKeyUsage KeyUsage_keyEncipherment
-dataEncipherment = mkKeyUsage KeyUsage_dataEncipherment
-keyAgreement = mkKeyUsage KeyUsage_keyAgreement
-keyCertSign = mkKeyUsage KeyUsage_keyCertSign
-cRLSign = mkKeyUsage KeyUsage_cRLSign
-encipherOnly = mkKeyUsage KeyUsage_encipherOnly
-decipherOnly = mkKeyUsage KeyUsage_decipherOnly
+mkKeyUsage :: X509.ExtKeyUsageFlag -> [Extension Untyped]
+mkKeyUsage flag = mkCritical $ KeyUsage $ coerce $ X509.ExtKeyUsage [flag]
 
--- * Extended key usage
+mkExtendedKeyUsage :: X509.ExtKeyUsagePurpose -> [Extension Untyped]
+mkExtendedKeyUsage flag = mkCritical $ ExtendedKeyUsage $ coerce $ X509.ExtExtendedKeyUsage [flag]
 
-mkExtendedKeyUsage :: ExtKeyUsagePurpose -> [Extension]
-mkExtendedKeyUsage flag = [(True, ExtendedKeyUsage $ ExtExtendedKeyUsage [flag])]
+-- ** Newtypes
 
-serverAuth, clientAuth, codeSigning, emailProtection, timeStamping, oCSPSigning :: [Extension]
-serverAuth = mkExtendedKeyUsage KeyUsagePurpose_ServerAuth
-clientAuth = mkExtendedKeyUsage KeyUsagePurpose_ClientAuth
-codeSigning = mkExtendedKeyUsage KeyUsagePurpose_CodeSigning
-emailProtection = mkExtendedKeyUsage KeyUsagePurpose_EmailProtection
-timeStamping = mkExtendedKeyUsage KeyUsagePurpose_TimeStamping
-oCSPSigning = mkExtendedKeyUsage KeyUsagePurpose_OCSPSigning
+-- | These are solely to avoid orphan instances.
 
-extendedKeyUsageUnknown :: ASN1.OID -> [Extension]
-extendedKeyUsageUnknown oid = mkExtendedKeyUsage (KeyUsagePurpose_Unknown oid)
+newtype ExtBasicConstraints = ExtBasicConstraints X509.ExtBasicConstraints
+  deriving (Eq, Show)
+newtype ExtKeyUsage = ExtKeyUsage X509.ExtKeyUsage
+  deriving (Eq, Show)
+newtype ExtExtendedKeyUsage = ExtExtendedKeyUsage X509.ExtExtendedKeyUsage
+  deriving (Eq, Show)
+newtype ExtSubjectAltName = ExtSubjectAltName X509.ExtSubjectAltName
+  deriving (Eq, Show)
+newtype ExtSubjectKeyId = ExtSubjectKeyId X509.ExtSubjectKeyId
+  deriving (Eq, Show)
+newtype ExtAuthorityKeyId = ExtAuthorityKeyId X509.ExtAuthorityKeyId
+  deriving (Eq, Show)
 
--- * Subject key ID
+type family FromNewtype a where
+  FromNewtype ExtBasicConstraints = X509.ExtBasicConstraints
+  FromNewtype ExtKeyUsage = X509.ExtKeyUsage
+  FromNewtype ExtExtendedKeyUsage = X509.ExtExtendedKeyUsage
+  FromNewtype ExtSubjectAltName = X509.ExtSubjectAltName
+  FromNewtype ExtSubjectKeyId = X509.ExtSubjectKeyId
+  FromNewtype ExtAuthorityKeyId = X509.ExtAuthorityKeyId
 
-subjectKeyId :: BS.ByteString -> [Extension]
-subjectKeyId bs = [(True, SubjectKeyId $ ExtSubjectKeyId bs)]
-
-authorityKeyId :: BS.ByteString -> [Extension]
-authorityKeyId bs = [(True, AuthorityKeyId $ ExtAuthorityKeyId bs)]
-
--- * Subject Alternative Name
-
-subjectAltName :: AltName -> [Extension]
-subjectAltName altName = [(True, SubjectAltName $ ExtSubjectAltName [altName])]
-
--- * Alternative names
-
-rfc822 :: String -> AltName
-rfc822 str = AltNameRFC822 str
-
-dns :: String -> AltName
-dns str = AltNameDNS str
-
-uri :: String -> AltName
-uri str = AltNameURI str
-
-ip :: BS.ByteString -> AltName
-ip bs = AltNameIP bs
-
-xmpp :: String -> AltName
-xmpp str = AltNameXMPP str
-
-dnssrv :: String -> AltName
-dnssrv str = AltNameDNSSRV str
-
--- * Semigroup and Monoid instances
+-- ** Semigroup and Monoid instances
 
 instance Semigroup ExtBasicConstraints where
-  _ <> b = b -- fixme: is this a good way to merge?
+  _ <> b = b
 instance Monoid ExtBasicConstraints where
-  mempty = ExtBasicConstraints True Nothing -- fixme: is this a good mempty?
+  mempty = ExtBasicConstraints $ X509.ExtBasicConstraints True Nothing
 
+pattern ExtKeyUsageP :: [X509.ExtKeyUsageFlag] -> ExtKeyUsage
+pattern ExtKeyUsageP a = ExtKeyUsage (X509.ExtKeyUsage a)
 instance Semigroup ExtKeyUsage where
-  ExtKeyUsage a <> ExtKeyUsage b = ExtKeyUsage (a <> b)
+  ExtKeyUsageP a <> ExtKeyUsageP b = ExtKeyUsageP (a <> b)
 instance Monoid ExtKeyUsage where
-  mempty = ExtKeyUsage []
+  mempty = ExtKeyUsageP []
 
+pattern ExtExtendedKeyUsageP :: [X509.ExtKeyUsagePurpose] -> ExtExtendedKeyUsage
+pattern ExtExtendedKeyUsageP a = ExtExtendedKeyUsage (X509.ExtExtendedKeyUsage a)
 instance Semigroup ExtExtendedKeyUsage where
-  ExtExtendedKeyUsage a <> ExtExtendedKeyUsage b = ExtExtendedKeyUsage (a <> b)
+  ExtExtendedKeyUsageP a <> ExtExtendedKeyUsageP b = ExtExtendedKeyUsageP (a <> b)
 instance Monoid ExtExtendedKeyUsage where
-  mempty = ExtExtendedKeyUsage []
+  mempty = ExtExtendedKeyUsageP []
 
+pattern ExtSubjectAltNameP :: [X509.AltName] -> ExtSubjectAltName
+pattern ExtSubjectAltNameP a = ExtSubjectAltName (X509.ExtSubjectAltName a)
 instance Semigroup ExtSubjectAltName where
-  ExtSubjectAltName a <> ExtSubjectAltName b = ExtSubjectAltName (a <> b)
+  ExtSubjectAltNameP a <> ExtSubjectAltNameP b = ExtSubjectAltNameP (a <> b)
 instance Monoid ExtSubjectAltName where
-  mempty = ExtSubjectAltName []
+  mempty = ExtSubjectAltNameP []
 
 instance Semigroup ExtSubjectKeyId where
   _ <> b = b
 instance Semigroup ExtAuthorityKeyId where
   _ <> b = b
+
+instance Semigroup a => Semigroup (Extension a) where
+  Extension _ a <> Extension critical b = Extension critical (a <> b)
+
+{-# COMPLETE ExtKeyUsageP #-}
+{-# COMPLETE ExtExtendedKeyUsageP #-}
+{-# COMPLETE ExtSubjectAltNameP #-}

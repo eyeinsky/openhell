@@ -47,6 +47,7 @@ library
       NoImplicitPrelude
       NoMonomorphismRestriction
       OverloadedStrings
+      PatternSynonyms
       PolyKinds
       QuasiQuotes
       RecursiveDo
@@ -108,6 +109,7 @@ executable openhell
       NoImplicitPrelude
       NoMonomorphismRestriction
       OverloadedStrings
+      PatternSynonyms
       PolyKinds
       QuasiQuotes
       RecursiveDo

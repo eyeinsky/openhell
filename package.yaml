@@ -65,6 +65,7 @@ default-extensions:
 - NoImplicitPrelude
 - NoMonomorphismRestriction
 - OverloadedStrings
+- PatternSynonyms
 - PolyKinds
 - QuasiQuotes
 - RecursiveDo
