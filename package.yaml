@@ -59,6 +59,7 @@ default-extensions:
 - MultiParamTypeClasses
 - MultiWayIf
 - NamedFieldPuns
+- NoImplicitPrelude
 - NoMonomorphismRestriction
 - OverloadedStrings
 - PolyKinds

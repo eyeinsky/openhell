@@ -1,5 +1,6 @@
 module X509.Signature where
 
+import Prelude
 import qualified Data.ByteString as BS
 import Data.ByteArray (convert)
 

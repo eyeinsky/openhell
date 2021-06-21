@@ -1,5 +1,6 @@
 module CLI.Key where
 
+import Prelude
 import Options.Applicative
 import qualified Key
 

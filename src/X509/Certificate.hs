@@ -1,8 +1,6 @@
 module X509.Certificate where
 
-import Data.List
-import Data.Maybe
-import Data.String
+import Prelude
 import qualified Data.ByteString as BS
 import Control.Monad.Except
 

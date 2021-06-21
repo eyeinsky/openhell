@@ -1,5 +1,6 @@
 module Key where
 
+import Prelude
 import qualified Data.List as P
 import qualified Data.Either as P
 import qualified Data.Maybe as P

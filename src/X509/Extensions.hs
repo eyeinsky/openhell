@@ -23,6 +23,7 @@ module X509.Extensions
   )
   where
 
+import Prelude
 import Data.Maybe
 import qualified Data.ByteString as BS
 
