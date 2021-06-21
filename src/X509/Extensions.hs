@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 module X509.Extensions
   -- | Render
   ( extensions
