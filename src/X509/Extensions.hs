@@ -58,7 +58,7 @@ data Extension'
 extensions :: [Extension] -> X509.Extensions
 extensions es = let
   (a, b, c, d, e, f) = collect es
-  rawAndSetExtensions = catMaybes [fmap encode a, fmap encode b, fmap encode c, fmap encode e, fmap encode f]
+  rawAndSetExtensions = catMaybes [fmap encode a, fmap encode b, fmap encode c, fmap encode d, fmap encode e, fmap encode f]
   in case rawAndSetExtensions of
     _ : _ -> X509.Extensions $ Just rawAndSetExtensions
     _ -> X509.Extensions Nothing
@@ -74,8 +74,9 @@ collect exts = foldl go emptyCollector exts
     addExt :: Semigroup a => Maybe (Bool, a) -> (Bool, a) -> Maybe (Bool, a)
     addExt maybeSum ext'@ (crit, ext) = maybe (Just ext') (\(_, z) -> Just (crit, z <> ext)) maybeSum
 
-    go coll@ (a, b, c, d, e, f) ext'@ (critical, extension) = case extension of
-      BasicConstraint bc -> coll
+    go :: GroupedExtensions -> (Bool, Extension') -> GroupedExtensions
+    go (a, b, c, d, e, f) (critical, extension) = case extension of
+      BasicConstraint bc -> (addExt a (critical, bc), b, c, d, e, f)
       KeyUsage ku -> (a, addExt b (critical, ku), c, d, e, f)
       ExtendedKeyUsage eku -> (a, b, addExt c (critical, eku), d, e, f)
       SubjectKeyId ski -> (a, b, c, addExt d (critical, ski), e, f)
