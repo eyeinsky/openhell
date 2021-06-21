@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.2.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 
@@ -21,7 +21,44 @@ library
       Paths_openhell
   hs-source-dirs:
       src
-  default-extensions: Arrows BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveDataTypeable DeriveFunctor DeriveGeneric DerivingVia EmptyDataDecls ExtendedDefaultRules FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoMonomorphismRestriction OverloadedStrings PolyKinds QuasiQuotes RecursiveDo ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeFamilies TypeInType TypeOperators TypeSynonymInstances
+  default-extensions:
+      Arrows
+      BangPatterns
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveDataTypeable
+      DeriveFunctor
+      DeriveGeneric
+      DerivingVia
+      EmptyDataDecls
+      ExtendedDefaultRules
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      InstanceSigs
+      KindSignatures
+      LambdaCase
+      MultiParamTypeClasses
+      MultiWayIf
+      NamedFieldPuns
+      NoImplicitPrelude
+      NoMonomorphismRestriction
+      OverloadedStrings
+      PolyKinds
+      QuasiQuotes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      TemplateHaskell
+      TupleSections
+      TypeFamilies
+      TypeInType
+      TypeOperators
+      TypeSynonymInstances
+  ghc-options: -Wall -Wno-name-shadowing -O0
   build-depends:
       asn1-encoding
     , asn1-types
@@ -45,7 +82,43 @@ executable openhell
       CLI.Key
   hs-source-dirs:
       exe
-  default-extensions: Arrows BangPatterns ConstraintKinds DataKinds DefaultSignatures DeriveDataTypeable DeriveFunctor DeriveGeneric DerivingVia EmptyDataDecls ExtendedDefaultRules FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs KindSignatures LambdaCase MultiParamTypeClasses MultiWayIf NamedFieldPuns NoMonomorphismRestriction OverloadedStrings PolyKinds QuasiQuotes RecursiveDo ScopedTypeVariables StandaloneDeriving TemplateHaskell TupleSections TypeFamilies TypeInType TypeOperators TypeSynonymInstances
+  default-extensions:
+      Arrows
+      BangPatterns
+      ConstraintKinds
+      DataKinds
+      DefaultSignatures
+      DeriveDataTypeable
+      DeriveFunctor
+      DeriveGeneric
+      DerivingVia
+      EmptyDataDecls
+      ExtendedDefaultRules
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      InstanceSigs
+      KindSignatures
+      LambdaCase
+      MultiParamTypeClasses
+      MultiWayIf
+      NamedFieldPuns
+      NoImplicitPrelude
+      NoMonomorphismRestriction
+      OverloadedStrings
+      PolyKinds
+      QuasiQuotes
+      RecursiveDo
+      ScopedTypeVariables
+      StandaloneDeriving
+      TemplateHaskell
+      TupleSections
+      TypeFamilies
+      TypeInType
+      TypeOperators
+      TypeSynonymInstances
   build-depends:
       asn1-encoding
     , asn1-types

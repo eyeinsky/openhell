@@ -20,8 +20,11 @@ dependencies:
 - hourglass
 - text
 
+_ghc-options: &ghc-options "-Wall -Wno-name-shadowing -O0"
+
 library:
   source-dirs: src
+  ghc-options: *ghc-options
   exposed-modules:
   - X509.Certificate
   - X509.Signature
