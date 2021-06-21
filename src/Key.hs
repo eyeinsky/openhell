@@ -163,16 +163,6 @@ parseHeaderless ts = do
     cmp _ _ = False
 
   return $ P.nubBy cmp keys
-  where
-    -- pemToKey
-    --   :: [Maybe (OptProtected PrivKey)] -> PEM -> [Maybe (OptProtected PrivKey)]
-    tryParse :: PEM.PEM -> Either String (PKCS8.OptProtected X509.PrivKey)
-    tryParse pem = do
-      case PKCS8.pemToKey [] pem of
-        _ : _ : _ -> throwError "More than one PEM (should be impossible)"
-        [Nothing] -> throwError "Can't parse private key"
-        [] -> throwError "No private key"
-        [Just optProtected] -> return optProtected
 
 -- https://hackage.haskell.org/package/x509-store-1.6.7/docs/Data-X509-Memory.html
 -- https://hackage.haskell.org/package/cryptostore-0.2.1.0/docs/src/Crypto.Store.PKCS8.html#OptProtected
