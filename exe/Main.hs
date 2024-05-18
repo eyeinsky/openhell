@@ -3,17 +3,16 @@ module Main where
 import Prelude
 import Control.Monad
 import Control.Monad.Except
-import qualified Data.ByteString as BS
+import Data.ByteString qualified as BS
 
 import Control.Exception
 import Options.Applicative
 
-import qualified Data.PEM as PEM
-import qualified Crypto.PubKey.RSA as RSA
-import qualified Data.X509 as X509
--- import qualified Crypto.Store.X509 as X509
-import qualified Crypto.Store.PKCS8 as PKCS8
-import qualified Data.X509.PKCS10 as PKCS10
+import Data.PEM qualified as PEM
+import Crypto.PubKey.RSA qualified as RSA
+import Data.X509 qualified as X509
+import Crypto.Store.PKCS8 qualified as PKCS8
+-- import qualified Data.X509.PKCS10 as PKCS10
 
 import qualified Key
 
@@ -112,7 +111,7 @@ sign o = earlyExit $ do
   csrs' <- mapM tryReadFile $ csrs o
   pure ()
   where
-    certify :: X509.PrivKey -> PKCS10.SignedCertificationRequest -> X509.SignedCertificate
+    -- certify :: X509.PrivKey -> PKCS10.SignedCertificationRequest -> X509.SignedCertificate
     certify k p = undefined
 
 -- * Key

@@ -2,7 +2,7 @@ module CLI.Key where
 
 import Prelude
 import Options.Applicative
-import qualified Key
+import Key qualified
 
 data KeyGenerate where
   KeyGenerateRSA :: Key.Conf Key.RSA -> KeyGenerate

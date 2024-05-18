@@ -1,27 +1,28 @@
 module Key where
 
 import Prelude
-import qualified Data.List as P
-import qualified Data.Maybe as P
-import qualified Data.ByteString as BS
-import qualified Data.Text as TS
-import qualified Data.Text.Encoding as TS
-import qualified Data.ByteArray.Encoding as E
+import Data.Kind (Type)
+import Data.List qualified as P
+import Data.Maybe qualified as P
+import Data.ByteString qualified as BS
+import Data.Text qualified as TS
+import Data.Text.Encoding qualified as TS
+import Data.ByteArray.Encoding qualified as E
 
 import Data.X509 (PubKey(..), PubKeyEC(..), SerializedPoint(..))
 import Crypto.Number.Serialize (i2ospOf_)
 
-import qualified Crypto.PubKey.DSA        as DSA
-import qualified Crypto.PubKey.ECC.ECDSA  as ECDSA
-import qualified Crypto.PubKey.ECC.Types  as ECC
-import qualified Crypto.PubKey.ECC.Generate as ECC
-import qualified Crypto.PubKey.Ed25519    as Ed25519
-import qualified Crypto.PubKey.Ed448      as Ed448
-import qualified Crypto.PubKey.RSA        as RSA
+import Crypto.PubKey.DSA qualified as DSA
+import Crypto.PubKey.ECC.ECDSA qualified as ECDSA
+import Crypto.PubKey.ECC.Types qualified as ECC
+import Crypto.PubKey.ECC.Generate qualified as ECC
+import Crypto.PubKey.Ed25519 qualified as Ed25519
+import Crypto.PubKey.Ed448 qualified as Ed448
+import Crypto.PubKey.RSA qualified as RSA
 
-import qualified Data.PEM as PEM
-import qualified Crypto.Store.PKCS8 as PKCS8
-import qualified Data.X509 as X509
+import Data.PEM qualified as PEM
+import Crypto.Store.PKCS8 qualified as PKCS8
+import Data.X509 qualified as X509
 
 -- * Key algorithm types
 
@@ -31,14 +32,14 @@ data ECDSA
 data Ed25519
 data Ed448
 
-type family Private t :: *
+type family Private t :: Type
 type instance Private RSA = RSA.PrivateKey
 type instance Private DSA = DSA.PrivateKey
 type instance Private ECDSA = ECDSA.PrivateKey
 type instance Private Ed25519 = Ed25519.SecretKey
 type instance Private Ed448 = Ed448.SecretKey
 
-type family Public t :: *
+type family Public t :: Type
 type instance Public RSA = RSA.PublicKey
 type instance Public DSA = DSA.PublicKey
 type instance Public ECDSA = ECDSA.PublicKey
@@ -50,7 +51,7 @@ type Pair alg = (Public alg, Private alg)
 -- * Generate
 
 class Generate alg where
-  data Conf alg :: *
+  data Conf alg :: Type
   generate :: Conf alg -> IO (Pair alg)
 
 instance Generate RSA where
@@ -117,7 +118,9 @@ instance ToPubKey ECDSA.PublicKey where
           maybeResult = P.find ((== curve). fst) allCurvesWithName
 
       curveFromKey = ECDSA.public_curve key :: ECC.Curve
-      ECC.Point x y = ECDSA.public_q key
+      (x, y) = case ECDSA.public_q key of
+        ECC.Point x' y' -> (x', y')
+        _ -> error "TODO: unmatched pattern"
       pub   = SerializedPoint bs
       bs    = BS.cons 4 (i2ospOf_ bytes x `BS.append` i2ospOf_ bytes y)
       bits  = ECC.curveSizeBits curveFromKey

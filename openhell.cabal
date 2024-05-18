@@ -1,8 +1,4 @@
-cabal-version: 1.12
-
--- This file has been generated from package.yaml by hpack version 0.34.4.
---
--- see: https://github.com/sol/hpack
+cabal-version: 3.4
 
 name:           openhell
 version:        0.0.1
@@ -11,130 +7,45 @@ maintainer:     Markus Läll <markus.l2ll@gmail.com>
 license:        MIT
 build-type:     Simple
 
+common lang
+  default-language: GHC2021
+  default-extensions:
+    PatternSynonyms
+    TypeFamilies
+
 library
+  import:         lang
+  hs-source-dirs: src
+  ghc-options:    -Wall -Wno-name-shadowing
   exposed-modules:
       X509.Certificate
       X509.Signature
       X509.Extensions
       Key
-  other-modules:
-      Paths_openhell
-  hs-source-dirs:
-      src
-  default-extensions:
-      Arrows
-      BangPatterns
-      ConstraintKinds
-      DataKinds
-      DefaultSignatures
-      DeriveDataTypeable
-      DeriveFunctor
-      DeriveGeneric
-      DerivingVia
-      EmptyDataDecls
-      ExtendedDefaultRules
-      FlexibleContexts
-      FlexibleInstances
-      FunctionalDependencies
-      GADTs
-      GeneralizedNewtypeDeriving
-      InstanceSigs
-      KindSignatures
-      LambdaCase
-      MultiParamTypeClasses
-      MultiWayIf
-      NamedFieldPuns
-      NoImplicitPrelude
-      NoMonomorphismRestriction
-      OverloadedStrings
-      PatternSynonyms
-      PolyKinds
-      QuasiQuotes
-      RecursiveDo
-      ScopedTypeVariables
-      StandaloneDeriving
-      TemplateHaskell
-      TupleSections
-      TypeFamilies
-      TypeInType
-      TypeOperators
-      TypeSynonymInstances
-  ghc-options: -Wall -Wno-name-shadowing -O0
   build-depends:
-      asn1-encoding
+    , asn1-encoding
     , asn1-types
     , base
     , bytestring
     , cryptonite
     , cryptostore
-    , hourglass
     , memory
-    , mtl
-    , optparse-applicative
     , pem
-    , pkcs10
     , text
     , x509
-  default-language: Haskell2010
 
 executable openhell
-  main-is: Main.hs
-  other-modules:
-      CLI.Key
-  hs-source-dirs:
-      exe
-  default-extensions:
-      Arrows
-      BangPatterns
-      ConstraintKinds
-      DataKinds
-      DefaultSignatures
-      DeriveDataTypeable
-      DeriveFunctor
-      DeriveGeneric
-      DerivingVia
-      EmptyDataDecls
-      ExtendedDefaultRules
-      FlexibleContexts
-      FlexibleInstances
-      FunctionalDependencies
-      GADTs
-      GeneralizedNewtypeDeriving
-      InstanceSigs
-      KindSignatures
-      LambdaCase
-      MultiParamTypeClasses
-      MultiWayIf
-      NamedFieldPuns
-      NoImplicitPrelude
-      NoMonomorphismRestriction
-      OverloadedStrings
-      PatternSynonyms
-      PolyKinds
-      QuasiQuotes
-      RecursiveDo
-      ScopedTypeVariables
-      StandaloneDeriving
-      TemplateHaskell
-      TupleSections
-      TypeFamilies
-      TypeInType
-      TypeOperators
-      TypeSynonymInstances
+  import:         lang
+  main-is:        Main.hs
+  other-modules:  CLI.Key
+  hs-source-dirs: exe
   build-depends:
-      asn1-encoding
-    , asn1-types
+    , openhell
     , base
     , bytestring
     , cryptonite
     , cryptostore
-    , hourglass
-    , memory
     , mtl
-    , openhell
     , optparse-applicative
     , pem
-    , pkcs10
-    , text
     , x509
-  default-language: Haskell2010
