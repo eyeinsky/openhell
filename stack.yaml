@@ -1,0 +1,6 @@
+resolver: lts-21.2
+
+packages:
+- .
+- sub/cryptostore
+- sub/pem

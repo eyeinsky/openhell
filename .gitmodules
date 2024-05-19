@@ -1,0 +1,6 @@
+[submodule "sub/pem"]
+	path = sub/pem
+	url = git@github.com:eyeinsky/hs-pem.git
+[submodule "sub/cryptostore"]
+	path = sub/cryptostore
+	url = git@github.com:eyeinsky/cryptostore.git
