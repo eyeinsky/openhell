@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 module Key where
 
 import Prelude
@@ -6,6 +8,7 @@ import Data.List qualified as P
 import Data.Maybe qualified as P
 import Data.ByteString qualified as BS
 import Data.Text qualified as TS
+import Data.Text.IO qualified as TS
 import Data.Text.Encoding qualified as TS
 import Data.ByteArray.Encoding qualified as E
 
@@ -19,6 +22,7 @@ import Crypto.PubKey.ECC.Generate qualified as ECC
 import Crypto.PubKey.Ed25519 qualified as Ed25519
 import Crypto.PubKey.Ed448 qualified as Ed448
 import Crypto.PubKey.RSA qualified as RSA
+import Crypto.PubKey.RSA.PSS qualified as RSA
 
 import Data.PEM qualified as PEM
 import Crypto.Store.PKCS8 qualified as PKCS8

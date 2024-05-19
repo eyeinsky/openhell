@@ -1,14 +1,23 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 module X509.Signature where
 
 import Prelude
+import Data.Maybe
 import qualified Data.ByteString as BS
 import Data.ByteArray (convert)
+import Data.Text qualified as TS
+import Data.Text.Encoding qualified as TS
+import Data.Text.IO qualified as TS
 
+import Data.ByteArray.Encoding (Base(Base64), convertToBase)
+
+import Data.PEM qualified as PEM
 import qualified Data.ASN1.Types as ASN1
 import qualified Data.ASN1.BinaryEncoding as ASN1
 import qualified Data.ASN1.Encoding as ASN1
-
 import Data.X509 (HashALG(..), SignatureALG(..), PubKeyALG(..))
+import Data.X509 qualified as Cryptostore
+import Crypto.Store.PKCS8 qualified as PKCS8
 import Crypto.Hash.Algorithms
 
 import qualified Crypto.PubKey.DSA        as DSA
@@ -79,8 +88,8 @@ signatureALG sa = case sa of
   Ed448 -> SignatureALG_IntrinsicHash PubKeyALG_Ed448
 
 -- | Sign @message@ with a signature algorithm and a fitting private key
-sign :: Algorithm alg -> Key.Private alg -> BS.ByteString -> IO (Either RSA.Error BS.ByteString)
-sign sa key message = case sa of
+signWithAlgorithm :: Algorithm alg -> Key.Private alg -> BS.ByteString -> IO (Either RSA.Error BS.ByteString)
+signWithAlgorithm sa key message = case sa of
   RSA hash -> RSA.signSafer (Just $ hashAlgorithm hash) key message
   RSAPSS params _ -> PSS.signSafer params key message
   DSA hash -> do
@@ -101,3 +110,34 @@ sign sa key message = case sa of
       ]
   Ed25519 -> return $ Right $ convert $ Ed25519.sign key (Ed25519.toPublic key) message
   Ed448 -> return $ Right $ convert $ Ed448.sign key (Ed448.toPublic key) message
+
+class DefaultAlgorithm alg where defaultAlgorithm :: Algorithm alg
+instance DefaultAlgorithm Key.RSA where defaultAlgorithm = RSA hashSHA1
+
+-- | Sign @message@ bytes with @key@, using some default algorithm for
+-- any crypto system @alg@. To choose a different algorithm, use
+-- @signWithAlgorithm@.
+sign :: forall alg . DefaultAlgorithm alg => Key.Private alg -> BS.ByteString -> IO BS.ByteString
+sign key message = either (error . show) id <$> signWithAlgorithm (defaultAlgorithm @alg) key message
+
+-- *
+
+-- | Read a single unencrypted private key as PEM from @path@
+readPrivateKey :: FilePath -> IO (Key.Private Key.RSA)
+readPrivateKey path = do
+  pemText <- TS.readFile path
+  case PEM.pemParseBS (TS.encodeUtf8 pemText) of
+    Left err -> fail $ "PEM parsing error: " <> err
+    Right (pem : _ ) -> do
+      case catMaybes $ PKCS8.pemToKey [] pem of
+        [a] -> case a of
+          PKCS8.Protected _ -> fail "protected"
+          PKCS8.Unprotected (key_ :: Cryptostore.PrivKey) -> do
+            let Cryptostore.PrivKeyRSA (key :: RSA.PrivateKey) = key_
+            return key
+        [] -> fail $ "No PEMs found in file " <> path
+        _ -> fail $ "More than one PEM found in file " <> path
+
+
+encodeBase64 :: BS.ByteString -> BS.ByteString
+encodeBase64 bs = convertToBase Base64 bs

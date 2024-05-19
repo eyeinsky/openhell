@@ -17,7 +17,7 @@ mkCertificate tbs signingKey sigAlg tbsPub = let
     signAlgI = Signature.signatureALG sigAlg :: SignatureALG
     signatureFunction :: BS.ByteString -> IO (BS.ByteString, SignatureALG)
     signatureFunction objRaw = do
-      sigBits <- either (error . show) return =<< Signature.sign sigAlg signingKey objRaw
+      sigBits <- either (error . show) return =<< Signature.signWithAlgorithm sigAlg signingKey objRaw
       return (sigBits, signAlgI)
     tbs' = tbs
       { certSignatureAlg = signAlgI
