@@ -178,7 +178,7 @@ opts = Options <$> hsubparser (key <> csr <> ca) <*> verbose
 
 main :: IO ()
 main = do
-  opts :: Options <- execParser (info opts idm)
+  opts :: Options <- execParser (info (helper <*> opts) idm)
   when (verbose opts) $ print opts
   case optCommand opts of
     KeyOptions' keyOpts -> case keyOpts of
