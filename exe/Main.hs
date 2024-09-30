@@ -4,6 +4,7 @@ import Prelude
 import Control.Monad
 import Control.Monad.Except
 import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as BS
 
 import Control.Exception
 import Options.Applicative
@@ -133,7 +134,9 @@ keyRead :: KeyRead -> IO ()
 keyRead o = earlyExit $ do
   liftIO $ putStrLn "Keys:"
   forM_ (files o) $ \path -> do
-    content :: BS.ByteString <- tryReadFile path
+    content :: BS.ByteString <- case path of
+      "-" -> liftIO BS.getContents
+      filePath -> tryReadFile path
     forM_ (PKCS8.readKeyFileFromMemory content) $ \key -> liftIO $ case key of
       PKCS8.Unprotected key -> putStrLn $ "- " <> path <> ": " <> showKey key
       PKCS8.Protected _ -> print "password protected"
