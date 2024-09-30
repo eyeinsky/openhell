@@ -12,6 +12,7 @@ common lang
   default-extensions:
     PatternSynonyms
     TypeFamilies
+    LambdaCase
 
 library
   import:         lang
