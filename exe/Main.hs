@@ -4,6 +4,7 @@ import Prelude
 import Control.Monad
 import Control.Monad.Except
 import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as BS
 
 import Control.Exception
 import Options.Applicative
@@ -43,12 +44,12 @@ deriving instance Show KeyOptions
 deriving instance Show KeyGenerate
 
 data KeyRead = KeyRead
-  { files :: [FilePath]
+  { paths :: [FilePath]
   } deriving (Show)
 
 keyReadP :: Parser KeyRead
 keyReadP = KeyRead <$>
-  some (argument str (metavar "FILES to inspect"))
+  many (argument str (metavar "FILES to inspect"))
 
 keyCmdP :: Parser KeyOptions
 keyCmdP = KeyRead' <$> keyReadP
@@ -130,19 +131,35 @@ keyGenerate o = case o of
       BS.putStr $ PEM.pemWriteBS $ Key.toPKCS8 priv
 
 keyRead :: KeyRead -> IO ()
-keyRead o = earlyExit $ do
+keyRead KeyRead{paths} = earlyExit $ do
   liftIO $ putStrLn "Keys:"
-  forM_ (files o) $ \path -> do
-    content :: BS.ByteString <- tryReadFile path
-    forM_ (PKCS8.readKeyFileFromMemory content) $ \key -> liftIO $ case key of
-      PKCS8.Unprotected key -> putStrLn $ "- " <> path <> ": " <> showKey key
-      PKCS8.Protected _ -> print "password protected"
+  void $ case paths of
+    [] -> liftIO showStdin
+    _ -> forM_ paths $ \case
+      "-" -> liftIO showStdin
+      path -> liftIO . showBs path =<< tryReadFile path
 
   where
+    showStdin :: IO ()
+    showStdin = showBs "stdin" =<< BS.getContents
+
+    showBs :: FilePath -> BS.ByteString -> IO ()
+    showBs path bs = forM_ (PKCS8.readKeyFileFromMemory bs) (showPkcs8 path)
+
+    showPkcs8 :: FilePath -> PKCS8.OptProtected X509.PrivKey -> IO ()
+    showPkcs8 path pkcs8 = case pkcs8 of
+      PKCS8.Unprotected key -> putStrLn $ "- " <> path <> ": " <> showKey key <> " private key"
+      PKCS8.Protected _ -> print "password protected"
+
     showKey :: X509.PrivKey -> String
     showKey key = case key of
-      X509.PrivKeyRSA rsa -> "RSA, " <> show (RSA.public_size (RSA.private_pub rsa) * 8) <> " bit"
-      _ -> "not implemented"
+      X509.PrivKeyRSA rsa -> "RSA " <> show (RSA.public_size (RSA.private_pub rsa) * 8) <> " bit"
+      X509.PrivKeyEd25519 _key -> "Ed25519"
+      X509.PrivKeyEd448 _key -> "Ed448"
+      X509.PrivKeyDSA _key -> "DSA"
+      X509.PrivKeyEC _key -> "EC"
+      X509.PrivKeyX25519 _key -> "X25519"
+      X509.PrivKeyX448 _key -> "X448"
 
 -- * Certificate signing request
 
@@ -178,7 +195,7 @@ opts = Options <$> hsubparser (key <> csr <> ca) <*> verbose
 
 main :: IO ()
 main = do
-  opts :: Options <- execParser (info opts idm)
+  opts :: Options <- execParser (info (helper <*> opts) idm)
   when (verbose opts) $ print opts
   case optCommand opts of
     KeyOptions' keyOpts -> case keyOpts of
