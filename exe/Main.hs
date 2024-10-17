@@ -2,6 +2,7 @@ module Main where
 
 import Prelude
 import Control.Monad
+import Control.Monad.IO.Class
 import Control.Monad.Except
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS
