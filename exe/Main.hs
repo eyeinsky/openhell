@@ -27,17 +27,17 @@ data Options = Options
   } deriving (Show)
 
 data Command
-  = KeyOptions' KeyOptions
-  | CSROptions' CSROptions
-  | CAOptions' CAOptions
-  | SignOptions' SignOptions
+  = KeyOptions_ KeyOptions
+  | CSROptions_ CSROptions
+  | CAOptions_ CAOptions
+  | SignOptions_ SignOptions
   deriving (Show)
 
 -- ** Key
 
 data KeyOptions where
-  KeyGenerate' :: KeyGenerate -> KeyOptions
-  KeyRead' :: KeyRead -> KeyOptions
+  KeyGenerate_ :: KeyGenerate -> KeyOptions
+  KeyRead_ :: KeyRead -> KeyOptions
 
 instance Show (Key.Conf alg) where show _ = "Key.Conf alg" -- temporary
 deriving instance Show KeyOptions
@@ -52,24 +52,24 @@ keyReadP = KeyRead <$>
   many (argument str (metavar "FILES to inspect"))
 
 keyCmdP :: Parser KeyOptions
-keyCmdP = KeyRead' <$> keyReadP
-  <|> KeyGenerate' <$> keyGenerateP
+keyCmdP = KeyRead_ <$> keyReadP
+  <|> KeyGenerate_ <$> keyGenerateP
 
 -- *** Generate
 
 -- ** Certificate signing request
 
 data CSROptions
-  = CSRCreate' CSRCreate
-  | CSRRead' CSRRead
+  = CSRCreate_ CSRCreate
+  | CSRRead_ CSRRead
   deriving (Show)
 
 data CSRCreate = CSRCreate deriving (Show)
 data CSRRead = CSRRead deriving (Show)
 
 csrCmdP :: Parser CSROptions
-csrCmdP = CSRCreate' <$> undefined
-      <|> CSRRead' <$> undefined
+csrCmdP = CSRCreate_ <$> undefined
+      <|> CSRRead_ <$> undefined
 
 -- ** Certificate authority
 
@@ -179,13 +179,13 @@ ca _ = return ()
 opts :: Parser Options
 opts = Options <$> hsubparser (key <> csr <> ca) <*> verbose
   where
-    key = command "key" $ info (KeyOptions' <$> keyCmdP)
+    key = command "key" $ info (KeyOptions_ <$> keyCmdP)
         $ progDesc "Generate, check or password protect keys"
-    csr = command "csr" $ info (CSROptions' <$> csrCmdP)
+    csr = command "csr" $ info (CSROptions_ <$> csrCmdP)
         $ progDesc "Generate and check certificate signing requests"
-    ca = command "ca" $ info (CAOptions' <$> caCmdP)
+    ca = command "ca" $ info (CAOptions_ <$> caCmdP)
        $ progDesc "CA ..."
-    sign = command "sign" $ info (SignOptions' <$> signCmdP)
+    sign = command "sign" $ info (SignOptions_ <$> signCmdP)
         $ progDesc "Sign a CSR"
 
     verbose = switch
@@ -198,13 +198,13 @@ main = do
   opts :: Options <- execParser (info (helper <*> opts) idm)
   when (verbose opts) $ print opts
   case optCommand opts of
-    KeyOptions' keyOpts -> case keyOpts of
-      KeyGenerate' o -> keyGenerate o
-      KeyRead' o -> keyRead o
-    CSROptions' csrOpts -> case csrOpts of
-      CSRRead' o -> csrRead o
-      CSRCreate' o -> csrCreate o
-    CAOptions' o -> ca o
+    KeyOptions_ keyOpts -> case keyOpts of
+      KeyGenerate_ o -> keyGenerate o
+      KeyRead_ o -> keyRead o
+    CSROptions_ csrOpts -> case csrOpts of
+      CSRRead_ o -> csrRead o
+      CSRCreate_ o -> csrCreate o
+    CAOptions_ o -> ca o
 
 hot :: IO ()
 hot = main
