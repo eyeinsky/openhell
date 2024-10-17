@@ -1,24 +1,36 @@
 module Main where
 
 import Prelude
+import Data.Char
+import Data.List
+import Data.Maybe
+import Data.Text.Encoding qualified as TS
+import Data.Text qualified as TS
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Except
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS
+import Data.ByteString.Char8 qualified as BS8
+import Time.Types as Hourglass
+import Time.Compat as Hourglass
+import Data.Time
 
 import Control.Exception
 import Options.Applicative
 
 import Data.PEM qualified as PEM
 import Crypto.PubKey.RSA qualified as RSA
-import Data.X509 qualified as X509
+import Data.X509 as X509
 import Crypto.Store.PKCS8 qualified as PKCS8
 -- import qualified Data.X509.PKCS10 as PKCS10
 
 import qualified Key
+import X509.Certificate qualified as Cert
 
+import Helpers
 import CLI.Key
+import CLI.Cert qualified as Cert
 
 -- * Options
 
@@ -29,6 +41,7 @@ data Options = Options
 
 data Command
   = KeyOptions_ KeyOptions
+  | CertOptions_ CertOptions
   | CSROptions_ CSROptions
   | CAOptions_ CAOptions
   | SignOptions_ SignOptions
@@ -44,17 +57,75 @@ instance Show (Key.Conf alg) where show _ = "Key.Conf alg" -- temporary
 deriving instance Show KeyOptions
 deriving instance Show KeyGenerate
 
-data KeyRead = KeyRead
-  { paths :: [FilePath]
-  } deriving (Show)
-
 keyReadP :: Parser KeyRead
-keyReadP = KeyRead <$>
-  many (argument str (metavar "FILES to inspect"))
+keyReadP = KeyRead <$> manyPaths "FILES to inspect"
 
 keyCmdP :: Parser KeyOptions
 keyCmdP = KeyRead_ <$> keyReadP
   <|> KeyGenerate_ <$> keyGenerateP
+
+-- ** Certificate
+
+data CertOptions
+  = CertCreate_ Cert.Create
+  | CertRead_ Cert.Read
+  deriving Show
+
+certCmdP :: Parser CertOptions
+certCmdP
+  = CertCreate_ <$> pure Cert.Create
+  <|> CertRead_ <$> (Cert.Read <$> manyPaths "CERT")
+
+certRead :: Cert.Read -> IO ()
+certRead Cert.Read{Cert.paths} = do
+  mapM_ (doCert <=< BS.readFile) paths
+  where
+    doCert bs = do
+      signedExacts <- either fail pure $ Cert.fromPem bs
+      mapM_ showCert signedExacts
+
+    showCert :: X509.SignedExact X509.Certificate -> IO ()
+    showCert se = putStrLn $ unlines
+      [ showl "Serial" certSerial
+      , showl "Signature algorithm" (certSignatureAlg, alg)
+      , showl "Version" certVersion
+      , "Validity: " <> showDateTime validFrom <> " -- " <> showDateTime validTo
+      , showDN "Issuer:" certIssuerDN
+      , showDN "Subject:" certSubjectDN
+      , "Extensions:\n" <> (maybe "" (unlines . map showExt) $ case certExtensions of Extensions mb -> mb)
+      -- , show cert
+      ]
+      where
+        showl label a = label <> ": " <> show a
+
+        s = getSigned se :: X509.Signed X509.Certificate
+        cert = signedObject s
+        Certificate
+          { certSerial, certSignatureAlg, certPubKey
+          , certIssuerDN, certSubjectDN
+          , certExtensions
+          , certVersion
+          , certValidity = (validFrom, validTo)
+          } = cert
+
+        showDN label o = unlines $ label : (map showWho $ getDistinguishedElements o)
+        showWho (oid, cs) = "  " <> intercalate "." (map show oid) <> " " <> TS.unpack (TS.decodeUtf8 (getCharacterStringRawData cs))
+
+        showExt ExtensionRaw{extRawOID, extRawCritical, extRawContent} = "  " <> unwords [show extRawOID, show extRawCritical, unwords $ map show xs]
+          where
+            xs = filter (not . BS.null) $ BS8.splitWith (not . domainChar) extRawContent
+            domainChar c = isAlpha c || isDigit c || c `elem` ".-"
+
+
+        alg = signedAlg s
+        signature_ = signedSignature s
+
+        showDateTime :: DateTime -> String
+        showDateTime DateTime{ dtDate = Date y m d, dtTime = Hourglass.TimeOfDay h m_ s n } = dateStr <> " " <> timeStr
+          where
+            dateStr = intercalate "-" $ map show [fromIntegral y, fromEnum m, d]
+            timeStr = intercalate ":" $ map show [fromEnum h, fromEnum m_, fromEnum s]
+            -- day = fromGregorian y m d :: Day
 
 -- *** Generate
 
@@ -132,7 +203,7 @@ keyGenerate o = case o of
       BS.putStr $ PEM.pemWriteBS $ Key.toPKCS8 priv
 
 keyRead :: KeyRead -> IO ()
-keyRead KeyRead{paths} = earlyExit $ do
+keyRead KeyRead{CLI.Key.paths} = earlyExit $ do
   liftIO $ putStrLn "Keys:"
   void $ case paths of
     [] -> liftIO showStdin
@@ -178,10 +249,12 @@ ca _ = return ()
 -- * Main
 
 opts :: Parser Options
-opts = Options <$> hsubparser (key <> csr <> ca) <*> verbose
+opts = Options <$> hsubparser (key <> cert <> csr <> ca) <*> verbose
   where
     key = command "key" $ info (KeyOptions_ <$> keyCmdP)
         $ progDesc "Generate, check or password protect keys"
+    cert = command "cert" $ info (CertOptions_ <$> certCmdP)
+        $ progDesc "Create, modify or inspect certificates"
     csr = command "csr" $ info (CSROptions_ <$> csrCmdP)
         $ progDesc "Generate and check certificate signing requests"
     ca = command "ca" $ info (CAOptions_ <$> caCmdP)
@@ -202,6 +275,9 @@ main = do
     KeyOptions_ keyOpts -> case keyOpts of
       KeyGenerate_ o -> keyGenerate o
       KeyRead_ o -> keyRead o
+    CertOptions_ certOpts -> case certOpts of
+      CertCreate_ o -> print o
+      CertRead_ o -> certRead o
     CSROptions_ csrOpts -> case csrOpts of
       CSRRead_ o -> csrRead o
       CSRCreate_ o -> csrCreate o

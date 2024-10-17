@@ -38,7 +38,7 @@ library
 executable openhell
   import:         lang
   main-is:        Main.hs
-  other-modules:  CLI.Key
+  other-modules:  CLI.Key, CLI.Cert, Helpers
   hs-source-dirs: exe
   build-depends:
     , openhell

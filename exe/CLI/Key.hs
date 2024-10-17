@@ -4,6 +4,11 @@ import Prelude
 import Options.Applicative
 import Key qualified
 
+
+data KeyRead = KeyRead
+  { paths :: [FilePath]
+  } deriving (Show)
+
 data KeyGenerate where
   KeyGenerateRSA :: Key.Conf Key.RSA -> KeyGenerate
   -- KeyGenerateDSA :: Key.Conf Key.DSA -> KeyGenerate
