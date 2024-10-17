@@ -28,14 +28,14 @@ data Options = Options
   } deriving (Show)
 
 data Command
-  = KeyOptions' KeyOptions
+  = KeyOptions_ KeyOptions
   deriving (Show)
 
 -- ** Key
 
 data KeyOptions where
-  KeyGenerate' :: KeyGenerate -> KeyOptions
-  KeyRead' :: KeyRead -> KeyOptions
+  KeyGenerate_ :: KeyGenerate -> KeyOptions
+  KeyRead_ :: KeyRead -> KeyOptions
 
 instance Show (Key.Conf alg) where show _ = "Key.Conf alg" -- temporary
 deriving instance Show KeyOptions
@@ -50,8 +50,8 @@ keyReadP = KeyRead <$>
   many (argument str (metavar "FILES to inspect"))
 
 keyCmdP :: Parser KeyOptions
-keyCmdP = KeyRead' <$> keyReadP
-  <|> KeyGenerate' <$> keyGenerateP
+keyCmdP = KeyRead_ <$> keyReadP
+  <|> KeyGenerate_ <$> keyGenerateP
 
 -- * Key
 
@@ -105,7 +105,7 @@ keyRead KeyRead{paths} = earlyExit $ do
 opts :: Parser Options
 opts = Options <$> hsubparser key <*> verbose
   where
-    key = command "key" $ info (KeyOptions' <$> keyCmdP)
+    key = command "key" $ info (KeyOptions_ <$> keyCmdP)
         $ progDesc "Generate, check or password protect keys"
 
     verbose = switch
@@ -118,9 +118,9 @@ main = do
   opts :: Options <- execParser (info (helper <*> opts) idm)
   when (verbose opts) $ print opts
   case optCommand opts of
-    KeyOptions' keyOpts -> case keyOpts of
-      KeyGenerate' o -> keyGenerate o
-      KeyRead' o -> keyRead o
+    KeyOptions_ keyOpts -> case keyOpts of
+      KeyGenerate_ o -> keyGenerate o
+      KeyRead_ o -> keyRead o
 
 hot :: IO ()
 hot = main
