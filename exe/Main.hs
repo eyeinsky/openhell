@@ -1,6 +1,7 @@
 module Main where
 
 import Prelude
+import Data.Monoid
 import Data.Char
 import Data.List
 import Data.Maybe
@@ -73,7 +74,11 @@ data CertOptions
 
 certCmdP :: Parser CertOptions
 certCmdP
-  = CertCreate_ <$> pure Cert.Create
+  = CertCreate_ <$> (Cert.Create
+                     <$> strOption (long "subject-key")
+                     <*> strOption (long "issuer-key")
+                     <*> strOption (long "subject")
+                    )
   <|> CertRead_ <$> (Cert.Read <$> manyPaths "CERT")
 
 certRead :: Cert.Read -> IO ()
