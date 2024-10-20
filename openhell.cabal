@@ -13,6 +13,8 @@ common lang
     PatternSynonyms
     TypeFamilies
     LambdaCase
+    OverloadedStrings
+    MultiWayIf
 
 library
   import:         lang
@@ -24,6 +26,7 @@ library
       X509.Extensions
       Key
   build-depends:
+      aeson
     , asn1-encoding
     , asn1-types
     , base
@@ -31,9 +34,14 @@ library
     , cryptonite
     , cryptostore
     , memory
+    , mtl
+    , hourglass
     , pem
     , text
     , x509
+
+    -- , mtl
+    -- , optparse-applicative
 
 executable openhell
   import:         lang
@@ -41,7 +49,7 @@ executable openhell
   other-modules:  CLI.Key, CLI.Cert, Helpers
   hs-source-dirs: exe
   build-depends:
-    , openhell
+      openhell
     , base
     , bytestring
     , cryptonite
@@ -50,3 +58,7 @@ executable openhell
     , optparse-applicative
     , pem
     , x509
+    , text
+    , time
+    , aeson
+    , hourglass

@@ -15,5 +15,7 @@ data Create = Create
   deriving Show
 
 data Read = Read
-  { paths :: [FilePath] }
+  { paths :: [FilePath]
+  , format :: String
+  }
   deriving Show

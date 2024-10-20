@@ -2,6 +2,7 @@ module Main where
 
 import Prelude
 import Data.Monoid
+import Data.Aeson qualified as A
 import Data.Char
 import Data.List
 import Data.Maybe
@@ -13,6 +14,7 @@ import Control.Monad.Except
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS
 import Data.ByteString.Char8 qualified as BS8
+import Data.ByteString.Lazy.Char8 qualified as BL8
 import Time.Types as Hourglass
 import Time.Compat as Hourglass
 import Data.Time
@@ -74,27 +76,37 @@ data CertOptions
 
 certCmdP :: Parser CertOptions
 certCmdP
-  = CertCreate_ <$> (Cert.Create
-                     <$> strOption (long "subject-key")
-                     <*> strOption (long "issuer-key")
-                     <*> strOption (long "subject")
-                    )
-  <|> CertRead_ <$> (Cert.Read <$> manyPaths "CERT")
+  = CertCreate_ <$> certCreate
+  <|> CertRead_ <$> certRead
+  where
+    certCreate = Cert.Create
+      <$> strOption (long "subject-key")
+      <*> strOption (long "issuer-key")
+      <*> strOption (long "subject")
+    certRead = Cert.Read <$> manyPaths "CERT" <*> strOption (long "format" <> value "unspecified")
+
+certCreate :: Cert.Create -> IO ()
+certCreate Cert.Create{Cert.subjectKey, Cert.issuerKey, Cert.subjectName } = do
+  undefined
 
 certRead :: Cert.Read -> IO ()
-certRead Cert.Read{Cert.paths} = do
+certRead Cert.Read{Cert.paths, Cert.format} = do
   mapM_ (doCert <=< BS.readFile) paths
   where
+    shower = case format of
+      "json" -> BL8.putStrLn . A.encode . A.toJSON
+      _ -> showCert
+
     doCert bs = do
       signedExacts <- either fail pure $ Cert.fromPem bs
-      mapM_ showCert signedExacts
+      mapM_ (shower . signedObject . getSigned) signedExacts
 
-    showCert :: X509.SignedExact X509.Certificate -> IO ()
-    showCert se = putStrLn $ unlines
+    showCert :: X509.Certificate -> IO ()
+    showCert cert = putStrLn $ unlines
       [ showl "Serial" certSerial
-      , showl "Signature algorithm" (certSignatureAlg, alg)
+      , showl "Signature algorithm" certSignatureAlg
       , showl "Version" certVersion
-      , "Validity: " <> showDateTime validFrom <> " -- " <> showDateTime validTo
+      , TS.unpack $ "Validity: " <> Cert.dateTimeToISO8601 validFrom <> " -- " <> Cert.dateTimeToISO8601 validTo
       , showDN "Issuer:" certIssuerDN
       , showDN "Subject:" certSubjectDN
       , "Extensions:\n" <> (maybe "" (unlines . map showExt) $ case certExtensions of Extensions mb -> mb)
@@ -102,9 +114,6 @@ certRead Cert.Read{Cert.paths} = do
       ]
       where
         showl label a = label <> ": " <> show a
-
-        s = getSigned se :: X509.Signed X509.Certificate
-        cert = signedObject s
         Certificate
           { certSerial, certSignatureAlg, certPubKey
           , certIssuerDN, certSubjectDN
@@ -114,23 +123,14 @@ certRead Cert.Read{Cert.paths} = do
           } = cert
 
         showDN label o = unlines $ label : (map showWho $ getDistinguishedElements o)
-        showWho (oid, cs) = "  " <> intercalate "." (map show oid) <> " " <> TS.unpack (TS.decodeUtf8 (getCharacterStringRawData cs))
+        showWho (oid, cs) = "  " <> TS.unpack (Cert.oidLabel oid) <> " " <> TS.unpack (TS.decodeUtf8 (getCharacterStringRawData cs))
 
         showExt ExtensionRaw{extRawOID, extRawCritical, extRawContent} = "  " <> unwords [show extRawOID, show extRawCritical, unwords $ map show xs]
           where
             xs = filter (not . BS.null) $ BS8.splitWith (not . domainChar) extRawContent
-            domainChar c = isAlpha c || isDigit c || c `elem` ".-"
-
-
-        alg = signedAlg s
-        signature_ = signedSignature s
-
-        showDateTime :: DateTime -> String
-        showDateTime DateTime{ dtDate = Date y m d, dtTime = Hourglass.TimeOfDay h m_ s n } = dateStr <> " " <> timeStr
-          where
-            dateStr = intercalate "-" $ map show [fromIntegral y, fromEnum m, d]
-            timeStr = intercalate ":" $ map show [fromEnum h, fromEnum m_, fromEnum s]
-            -- day = fromGregorian y m d :: Day
+            domainChar c = isAlpha c || isDigit c || c `elem` ['.', '-']
+--        alg = signedAlg s
+--        signature_ = signedSignature s
 
 -- *** Generate
 
