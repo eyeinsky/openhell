@@ -15,12 +15,14 @@ import Data.ByteString.Char8 qualified as BS8
 import Data.X509 hiding (Certificate, Extension)
 import qualified Data.X509 as X509
 import Data.ASN1.Types
+import Data.ASN1.Types.String
 import Data.Text qualified as TS
 import Data.Text.Encoding qualified as TS
 import Data.PEM qualified as PEM
 import Time.Types as Hourglass
 import Time.Compat as Hourglass
 import Time.System as Hourglass
+import Lens.Micro
 
 import X509.Extensions
 import qualified X509.Signature as Signature
@@ -42,30 +44,24 @@ mkCertificate tbs signingKey sigAlg tbsPub = let
       }
   in objectToSignedExactF signatureFunction tbs'
 
--- newTBS :: X509.ASN1CharacterString -> Email -> Serial -> String -> IO (TBS, Signature.Algorithm Key.RSA)
-newTBS commonName email serial issuerCN = do
-  now <- Hourglass.dateCurrent
-  let
-    date = Hourglass.dtDate now
-    date' = date { Hourglass.dateYear = (Hourglass.dateYear date + 1) }
-    until = now { Hourglass.dtDate = date' }
-    validity = (now, until) :: (DateTime, DateTime)
+newTBS :: TS.Text -> TS.Text -> (DateTime, DateTime) -> (TBS, Signature.Algorithm Key.RSA)
+newTBS subjectCN issuerCN validityInterval = (tbs, alg)
+  where
     alg = Signature.RSA Signature.hashSHA256 :: Signature.Algorithm Key.RSA
     tbs :: TBS
     tbs = X509.Certificate
       { certVersion = 2
       , certSerial = 0 -- TODO
-      , certValidity = validity
-      , certSubjectDN = mkCN commonName
-      , certIssuerDN = mkCN (fromString issuerCN)
+      , certValidity = validityInterval
+      , certSubjectDN = textCN subjectCN
+      , certIssuerDN = textCN issuerCN
       , certExtensions = extensions
           $ digitalSignature <> keyEncipherment
           <> serverAuth <> clientAuth
-          <> (subjectAltName $ rfc822 $ TS.unpack $ coerce email)
+          -- <> (subjectAltName $ rfc822 $ TS.unpack email)
       , certSignatureAlg = error "certSignatureAlg should be populated before any use"
       , certPubKey = error "certPubKey should be populated before any use"
       }
-  return (tbs, alg)
 
 fromPem :: BS.ByteString -> Either String [X509.SignedCertificate]
 fromPem arg = do
@@ -150,3 +146,18 @@ rawExtensionList = \case
 -- | Builds a DN with a single component.
 mkCN :: ASN1CharacterString -> DistinguishedName
 mkCN cn = DistinguishedName [(getObjectID DnCommonName, cn)]
+
+textCN :: TS.Text -> DistinguishedName
+textCN t = mkCN $ ASN1CharacterString UTF8 (TS.encodeUtf8 t)
+
+year :: Lens' Hourglass.Date Int
+year f date@(Date y m d) = (\y' -> Date y' m d) <$> f y
+
+date :: Lens' Hourglass.DateTime Hourglass.Date
+date f dt@(DateTime d t) = (\d -> DateTime d t) <$> f d
+
+validityIntervalFromNow :: IO (DateTime, DateTime)
+validityIntervalFromNow = do
+  validFrom :: DateTime <- Hourglass.dateCurrent
+  let validTo = validFrom & date . year %~ (+1)
+  return (validFrom, validTo)

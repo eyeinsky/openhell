@@ -17,6 +17,7 @@ import Data.ByteString.Char8 qualified as BS8
 import Data.ByteString.Lazy.Char8 qualified as BL8
 import Time.Types as Hourglass
 import Time.Compat as Hourglass
+import Time.System as Hourglass
 import Data.Time
 
 import Control.Exception
@@ -87,7 +88,19 @@ certCmdP
 
 certCreate :: Cert.Create -> IO ()
 certCreate Cert.Create{Cert.subjectKey, Cert.issuerKey, Cert.subjectName } = do
+  validity1year <- Cert.validityIntervalFromNow
+  let (tbs, alg) = Cert.newTBS subjectName "issuerName" validity1year
+  -- get pubKey
+  pem : _ <- either fail pure . PEM.pemParseBS =<< BS.readFile subjectKey
+  let x = Key.parseHeaderless $ TS.decodeUtf8 $ PEM.pemContent pem
+  -- print x
   undefined
+  -- get privKey
+  -- get (privKey matching) alg
+  -- cert <- Cert.mkCertificate tbs undefined undefined undefined
+  -- render to PEM
+  -- send to stdout
+  -- undefined
 
 certRead :: Cert.Read -> IO ()
 certRead Cert.Read{Cert.paths, Cert.format} = do

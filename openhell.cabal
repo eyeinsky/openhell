@@ -39,6 +39,7 @@ library
     , pem
     , text
     , x509
+    , microlens
 
     -- , mtl
     -- , optparse-applicative
