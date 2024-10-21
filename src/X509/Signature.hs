@@ -128,16 +128,14 @@ readPrivateKey path = do
   pemText <- TS.readFile path
   case PEM.pemParseBS (TS.encodeUtf8 pemText) of
     Left err -> fail $ "PEM parsing error: " <> err
-    Right (pem : _ ) -> do
-      case catMaybes $ PKCS8.pemToKey [] pem of
-        [a] -> case a of
+    Right pems -> do
+      case mapM PKCS8.pemToKey pems of
+        Right [a] -> case a of
           PKCS8.Protected _ -> fail "protected"
           PKCS8.Unprotected (key_ :: Cryptostore.PrivKey) -> do
             let Cryptostore.PrivKeyRSA (key :: RSA.PrivateKey) = key_
             return key
-        [] -> fail $ "No PEMs found in file " <> path
-        _ -> fail $ "More than one PEM found in file " <> path
-
+        Left err -> fail $ "Parse PEM error: " <> show err
 
 encodeBase64 :: BS.ByteString -> BS.ByteString
 encodeBase64 bs = convertToBase Base64 bs

@@ -78,7 +78,7 @@ keyRead KeyRead{CLI.Key.paths} = earlyExit $ do
     showStdin = showBs "stdin" =<< BS.getContents
 
     showBs :: FilePath -> BS.ByteString -> IO ()
-    showBs path bs = forM_ (PKCS8.readKeyFileFromMemory bs) (showPkcs8 path)
+    showBs path bs = forM_ (showLeft . PKCS8.pemToKey . head =<< PEM.pemParseBS bs) (showPkcs8 path)
 
     showPkcs8 :: FilePath -> PKCS8.OptProtected X509.PrivKey -> IO ()
     showPkcs8 path pkcs8 = case pkcs8 of
