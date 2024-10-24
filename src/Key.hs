@@ -161,7 +161,7 @@ parseHeaderless ts = do
     possiblePems = (\header -> PEM.PEM header [] bs) <$> allPemHeaders
 
     keys :: [PKCS8.OptProtected X509.PrivKey]
-    keys = P.mapMaybe (either (const Nothing) Just . PKCS8.parseKey) $ possiblePems
+    keys = P.mapMaybe (either (const Nothing) Just . PKCS8.fromPem) $ possiblePems
 
     cmp (PKCS8.Unprotected a) (PKCS8.Unprotected b) = a == b
     cmp _ _ = False

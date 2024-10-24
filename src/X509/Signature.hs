@@ -129,7 +129,7 @@ readPrivateKey path = do
   case PEM.pemParseBS (TS.encodeUtf8 pemText) of
     Left err -> fail $ "PEM parsing error: " <> err
     Right [pem] -> do
-      case PKCS8.parseKey pem of
+      case PKCS8.fromPem pem of
         Right a -> case a of
           PKCS8.Protected _ -> fail "protected"
           PKCS8.Unprotected (key_ :: Cryptostore.PrivKey) -> do

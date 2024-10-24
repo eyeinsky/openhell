@@ -234,7 +234,7 @@ keyRead KeyRead{CLI.Key.paths} = earlyExit $ do
     showStdin = showBs "stdin" =<< BS.getContents
 
     showBs :: FilePath -> BS.ByteString -> IO ()
-    showBs path bs = forM_ (PKCS8.parseKey . head =<< PEM.pemParseBS bs) (showPkcs8 path)
+    showBs path bs = forM_ (PKCS8.fromPem . head =<< PEM.pemParseBS bs) (showPkcs8 path)
     -- TODO: ^ head: parse multiple keys from file
 
     showPkcs8 :: FilePath -> PKCS8.OptProtected X509.PrivKey -> IO ()
