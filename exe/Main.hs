@@ -18,6 +18,7 @@ import Crypto.Store.PKCS8 qualified as PKCS8
 
 import qualified Key
 
+import Helpers
 import CLI.Key
 
 -- * Options

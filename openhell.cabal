@@ -26,6 +26,7 @@ library
       X509.Extensions
       Key
   build-depends:
+      aeson
     , asn1-encoding
     , asn1-types
     , base
@@ -34,9 +35,11 @@ library
     , cryptostore
     , memory
     , mtl
+    , hourglass
     , pem
     , text
     , x509
+    , microlens
 
 executable openhell
   import:         lang
@@ -53,3 +56,4 @@ executable openhell
     , optparse-applicative
     , pem
     , x509
+    , time
