@@ -29,9 +29,6 @@ data Options = Options
 
 data Command
   = KeyOptions' KeyOptions
-  | CSROptions' CSROptions
-  | CAOptions' CAOptions
-  | SignOptions' SignOptions
   deriving (Show)
 
 -- ** Key
@@ -55,66 +52,6 @@ keyReadP = KeyRead <$>
 keyCmdP :: Parser KeyOptions
 keyCmdP = KeyRead' <$> keyReadP
   <|> KeyGenerate' <$> keyGenerateP
-
--- *** Generate
-
--- ** Certificate signing request
-
-data CSROptions
-  = CSRCreate' CSRCreate
-  | CSRRead' CSRRead
-  deriving (Show)
-
-data CSRCreate = CSRCreate deriving (Show)
-data CSRRead = CSRRead deriving (Show)
-
-csrCmdP :: Parser CSROptions
-csrCmdP = CSRCreate' <$> undefined
-      <|> CSRRead' <$> undefined
-
--- ** Certificate authority
-
-data CAOptions = CAOptions deriving (Show)
-
-caCmdP :: Parser CAOptions
-caCmdP = pure CAOptions
-
--- * Sign
-
--- ** Options
-
-data CSR = CSR deriving (Show)
-data SignOptions = SignOptions
-  { privateKey :: FilePath
-  , csrs :: [FilePath] -- todo: non-empty list
-  , suffix :: String
-  } deriving (Show)
-
-signCmdP :: Parser SignOptions
-signCmdP = SignOptions
-  <$> key'ish
-  <*> csr'ish
-  <*> suffix'
-  where
-    key'ish = argument str (metavar "FILE" <> help "path to private key")
-    csr'ish = some (argument str (metavar "FILES to inspect"))
-    suffix' = option auto
-       $ long "suffix"
-      <> help "Suffix to add for signed certificates"
-      <> showDefault
-      <> value ".crt"
-      <> metavar "SUFFIX"
-
--- ** Implementation
-
-sign :: SignOptions -> IO ()
-sign o = earlyExit $ do
-  privateKey' <- tryReadFile $ privateKey o
-  csrs' <- mapM tryReadFile $ csrs o
-  pure ()
-  where
-    -- certify :: X509.PrivKey -> PKCS10.SignedCertificationRequest -> X509.SignedCertificate
-    certify k p = undefined
 
 -- * Key
 
@@ -162,32 +99,14 @@ keyRead KeyRead{paths} = earlyExit $ do
       X509.PrivKeyX25519 _key -> "X25519"
       X509.PrivKeyX448 _key -> "X448"
 
--- * Certificate signing request
-
-csrRead :: CSRRead -> IO ()
-csrRead o = undefined
-
-csrCreate :: CSRCreate -> IO ()
-csrCreate o = return ()
-
--- * Certificate authority
-
-ca :: CAOptions -> IO ()
-ca _ = return ()
 
 -- * Main
 
 opts :: Parser Options
-opts = Options <$> hsubparser (key <> csr <> ca) <*> verbose
+opts = Options <$> hsubparser key <*> verbose
   where
     key = command "key" $ info (KeyOptions' <$> keyCmdP)
         $ progDesc "Generate, check or password protect keys"
-    csr = command "csr" $ info (CSROptions' <$> csrCmdP)
-        $ progDesc "Generate and check certificate signing requests"
-    ca = command "ca" $ info (CAOptions' <$> caCmdP)
-       $ progDesc "CA ..."
-    sign = command "sign" $ info (SignOptions' <$> signCmdP)
-        $ progDesc "Sign a CSR"
 
     verbose = switch
         $ long "verbose"
@@ -202,10 +121,6 @@ main = do
     KeyOptions' keyOpts -> case keyOpts of
       KeyGenerate' o -> keyGenerate o
       KeyRead' o -> keyRead o
-    CSROptions' csrOpts -> case csrOpts of
-      CSRRead' o -> csrRead o
-      CSRCreate' o -> csrCreate o
-    CAOptions' o -> ca o
 
 hot :: IO ()
 hot = main
