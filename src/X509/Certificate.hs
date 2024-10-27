@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 module X509.Certificate where
 
 import Prelude
@@ -17,32 +18,50 @@ import Data.Text.Encoding qualified as TS
 import Time.Types as Hourglass
 import Time.System as Hourglass
 import Lens.Micro
-import qualified X509.Signature as Signature
+
+import X509.Extensions
+import X509.Signature as Signature
 import qualified Key
 import Data.PEM
 
 type TBS = X509.Certificate
 
-mkCertificate :: TBS -> Key.Private alg -> Signature.Algorithm alg -> PubKey -> IO SignedCertificate
-mkCertificate tbs signingKey sigAlg tbsPub = let
-    signAlgI = Signature.signatureALG sigAlg :: SignatureALG
-    signatureFunction :: BS.ByteString -> IO (BS.ByteString, SignatureALG)
-    signatureFunction objRaw = do
-      sigBits <- either (error . show) return =<< Signature.signWithAlgorithm sigAlg signingKey objRaw
-      return (sigBits, signAlgI)
-    tbs' = tbs
-      { certSignatureAlg = signAlgI
-      , certPubKey       = tbsPub
+mkCertificate :: forall alg . DefaultAlgorithm alg => TBS -> Key.Private alg -> PubKey -> IO SignedCertificate
+mkCertificate tbs signingKey tbsPub = let
+  alg = defaultAlgorithm @alg
+  in case alg of
+    RSA h -> let
+      signAlgI = signatureALG alg
+      signatureFunction :: BS.ByteString -> IO (BS.ByteString, SignatureALG)
+      signatureFunction objRaw = do
+        sigBits <- Signature.sign @alg signingKey objRaw
+        return (sigBits, signAlgI)
+      in objectToSignedExactF signatureFunction tbs { certSignatureAlg = signAlgI, certPubKey = tbsPub }
+    _ -> error "mkCertificate_: algorithm unimplemented" -- TODO
+
+newTBS :: TS.Text -> TS.Text -> (DateTime, DateTime) -> (TBS, Signature.Algorithm Key.RSA)
+newTBS subjectCN issuerCN validityInterval = (tbs, alg)
+  where
+    alg = Signature.RSA Signature.hashSHA256 :: Signature.Algorithm Key.RSA
+    tbs :: TBS
+    tbs = X509.Certificate
+      { certVersion = 2
+      , certSerial = 0 -- TODO
+      , certValidity = validityInterval
+      , certSubjectDN = textCN subjectCN
+      , certIssuerDN = textCN issuerCN
+      , certExtensions = extensions
+          $ digitalSignature <> keyEncipherment
+          <> serverAuth <> clientAuth
+          -- <> (subjectAltName $ rfc822 $ TS.unpack email)
+      , certSignatureAlg = error "certSignatureAlg should be populated before any use"
+      , certPubKey = error "certPubKey should be populated before any use"
       }
-  in objectToSignedExactF signatureFunction tbs'
 
 mkCA
-  :: (Key.ToPubKey (Key.Public alg))
-  => TBS
-  -> Key.Private alg -> Signature.Algorithm alg -- authority
-  -> Key.Public alg
-  -> IO SignedCertificate
-mkCA tbs priv sigAlg pub = mkCertificate tbs priv sigAlg (Key.toPubKey pub)
+  :: forall alg . (Key.ToPubKey (Key.Public alg), DefaultAlgorithm alg)
+  => TBS -> Key.Private alg -> Key.Public alg -> IO SignedCertificate
+mkCA tbs priv pub = mkCertificate @alg tbs priv (Key.toPubKey pub)
 
 -- * ToPEM
 
