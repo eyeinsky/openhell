@@ -41,17 +41,13 @@ instance Show (Key.Conf alg) where show _ = "Key.Conf alg" -- temporary
 deriving instance Show KeyOptions
 deriving instance Show KeyGenerate
 
-data KeyRead = KeyRead
-  { paths :: [FilePath]
-  } deriving (Show)
-
 keyReadP :: Parser KeyRead
-keyReadP = KeyRead <$>
-  many (argument str (metavar "FILES to inspect"))
+keyReadP = KeyRead <$> manyPaths "FILES to inspect"
 
 keyCmdP :: Parser KeyOptions
-keyCmdP = KeyRead_ <$> keyReadP
-  <|> KeyGenerate_ <$> keyGenerateP
+keyCmdP
+  = KeyGenerate_ <$> keyGenerateP
+  <|> KeyRead_ <$> keyReadP
 
 -- * Key
 
@@ -69,7 +65,7 @@ keyGenerate o = case o of
       BS.putStr $ PEM.pemWriteBS $ Key.toPKCS8 priv
 
 keyRead :: KeyRead -> IO ()
-keyRead KeyRead{paths} = earlyExit $ do
+keyRead KeyRead{CLI.Key.paths} = earlyExit $ do
   liftIO $ putStrLn "Keys:"
   void $ case paths of
     [] -> liftIO showStdin
@@ -87,7 +83,7 @@ keyRead KeyRead{paths} = earlyExit $ do
     showPkcs8 :: FilePath -> PKCS8.OptProtected X509.PrivKey -> IO ()
     showPkcs8 path pkcs8 = case pkcs8 of
       PKCS8.Unprotected key -> putStrLn $ "- " <> path <> ": " <> showKey key <> " private key"
-      PKCS8.Protected _ -> print "password protected"
+      PKCS8.Protected _ -> print "password protected" -- TODO
 
     showKey :: X509.PrivKey -> String
     showKey key = case key of
@@ -102,8 +98,8 @@ keyRead KeyRead{paths} = earlyExit $ do
 
 -- * Main
 
-opts :: Parser Options
-opts = Options <$> hsubparser key <*> verbose
+cli :: Parser Options
+cli = Options <$> hsubparser key <*> verbose
   where
     key = command "key" $ info (KeyOptions_ <$> keyCmdP)
         $ progDesc "Generate, check or password protect keys"
@@ -115,8 +111,8 @@ opts = Options <$> hsubparser key <*> verbose
 
 main :: IO ()
 main = do
-  opts :: Options <- execParser (info (helper <*> opts) idm)
-  when (verbose opts) $ print opts
+  opts :: Options <- execParser (info (helper <*> cli) idm)
+  when (verbose opts) $ putStrLn $ "CLI options: " <> show opts
   case optCommand opts of
     KeyOptions_ keyOpts -> case keyOpts of
       KeyGenerate_ o -> keyGenerate o
@@ -133,7 +129,7 @@ tryReadFile :: FilePath -> EarlyExit BS.ByteString
 tryReadFile path = do
   e <- liftIO $ try $ BS.readFile path
   case e of
-    Left (err :: IOException) -> fail $ "Couldn't read file: " <> path
+    Left (_err :: IOException) -> fail $ "Couldn't read file: " <> path
     Right bs -> return bs
 
 earlyExit :: EarlyExit () -> IO ()

@@ -13,6 +13,8 @@ common lang
     PatternSynonyms
     TypeFamilies
     LambdaCase
+    OverloadedStrings
+    MultiWayIf
 
 library
   import:         lang
@@ -31,6 +33,7 @@ library
     , cryptonite
     , cryptostore
     , memory
+    , mtl
     , pem
     , text
     , x509
@@ -38,10 +41,10 @@ library
 executable openhell
   import:         lang
   main-is:        Main.hs
-  other-modules:  CLI.Key
+  other-modules:  CLI.Key, Helpers
   hs-source-dirs: exe
   build-depends:
-    , openhell
+      openhell
     , base
     , bytestring
     , cryptonite

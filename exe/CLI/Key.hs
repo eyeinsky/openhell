@@ -4,6 +4,11 @@ import Prelude
 import Options.Applicative
 import Key qualified
 
+
+data KeyRead = KeyRead
+  { paths :: [FilePath]
+  } deriving (Show)
+
 data KeyGenerate where
   KeyGenerateRSA :: Key.Conf Key.RSA -> KeyGenerate
   -- KeyGenerateDSA :: Key.Conf Key.DSA -> KeyGenerate
@@ -40,6 +45,11 @@ genEd25519 = pure Key.Ed25519'
 
 keyGenerateP :: Parser KeyGenerate
 keyGenerateP
-  =   flag' () (long "rsa") *> (KeyGenerateRSA <$> genRSA)
-  <|> flag' () (long "ed448") *> (KeyGenerateEd448 <$> genEd448)
-  <|> flag' () (long "ed25519") *> (KeyGenerateEd25519 <$> genEd25519)
+  =   flag' () (long "rsa") *> rsa
+  <|> flag' () (long "ed448") *> ed448
+  <|> flag' () (long "ed25519") *> ed25519
+  <|> ed25519
+  where
+    rsa = KeyGenerateRSA <$> genRSA
+    ed448 = KeyGenerateEd448 <$> genEd448
+    ed25519 = KeyGenerateEd25519 <$> genEd25519
