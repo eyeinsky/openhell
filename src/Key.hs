@@ -99,6 +99,43 @@ instance Generate Ed448 where
     secret <- Ed448.generateSecretKey
     return (Ed448.toPublic secret, secret)
 
+-- * Private to public key
+
+-- | Extract public key from private
+class PrivatePub alg where privatePub :: Private alg -> Public alg
+
+instance PrivatePub RSA where privatePub = RSA.private_pub
+
+instance PrivatePub DSA where
+  privatePub (DSA.PrivateKey params privateNumber) =
+    DSA.PublicKey params (DSA.calculatePublic params privateNumber)
+
+instance PrivatePub ECDSA where
+  privatePub (ECDSA.PrivateKey curve d) = ECDSA.PublicKey curve undefined -- TODO
+
+instance PrivatePub EC where
+  privatePub = \case
+    X509.PrivKeyEC_Prime{} -> undefined -- TODO
+    X509.PrivKeyEC_Named{} -> undefined -- TODO
+
+instance PrivatePub X448 where privatePub = X448.toPublic
+
+instance PrivatePub X25519 where privatePub = X25519.toPublic
+
+instance PrivatePub Ed448 where privatePub = Ed448.toPublic
+
+instance PrivatePub Ed25519 where privatePub = Ed25519.toPublic
+
+getPubKey :: X509.PrivKey -> PubKey
+getPubKey = \case
+  X509.PrivKeyRSA k -> toPubKey $ privatePub @RSA k
+  X509.PrivKeyDSA k -> toPubKey $ privatePub @DSA k
+  X509.PrivKeyEC (k :: X509.PrivKeyEC) -> toPubKey $ privatePub @EC k
+  X509.PrivKeyEd25519 k -> toPubKey $ privatePub @Ed25519 k
+  X509.PrivKeyEd448 k -> toPubKey $ privatePub @Ed448 k
+  X509.PrivKeyX25519 k -> toPubKey $ privatePub @X25519 k
+  X509.PrivKeyX448 k -> toPubKey $ privatePub @X448 k
+
 -- * Convert typed keys to ADTs from x509:Data.X509
 
 -- | Serialize any private key to PKCS#8 PEM.
