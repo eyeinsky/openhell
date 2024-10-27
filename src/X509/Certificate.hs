@@ -113,9 +113,9 @@ instance ToJSON X509.Certificate where
 -- | OID labels for subject and issuer
 oidLabel :: [Integer] -> TS.Text
 oidLabel = \case
-  [2, 5, 4, 3] -> "common name"
+  [2, 5, 4, 3] -> "commonName"
   [2, 5, 4, 10] -> "organization"
-  [2, 5, 4, 11] -> "organization unit"
+  [2, 5, 4, 11] -> "organizationUnit"
   _ -> "unknown"
   -- TODO: get all OIDs
 

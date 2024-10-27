@@ -1,25 +1,34 @@
 module Main where
 
 import Prelude
+import Data.Aeson qualified as A
+import Data.Char
+import Data.Text.Encoding qualified as TS
+import Data.Text qualified as TS
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Except
 import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS
+import Data.ByteString.Char8 qualified as BS8
+import Data.ByteString.Lazy.Char8 qualified as BL8
 
 import Control.Exception
 import Options.Applicative
 
 import Data.PEM qualified as PEM
 import Crypto.PubKey.RSA qualified as RSA
-import Data.X509 qualified as X509
+import Data.X509 as X509
 import Crypto.Store.PKCS8 qualified as PKCS8
+import Crypto.Store.X509 qualified as X509_CS
 -- import qualified Data.X509.PKCS10 as PKCS10
 
 import qualified Key
+import X509.Certificate qualified as Cert
 
 import Helpers
 import CLI.Key
+import CLI.Cert qualified as Cert
 
 -- * Options
 
@@ -30,6 +39,7 @@ data Options = Options
 
 data Command
   = KeyOptions_ KeyOptions
+  | CertOptions_ CertOptions
   deriving (Show)
 
 -- ** Key
@@ -49,6 +59,62 @@ keyCmdP :: Parser KeyOptions
 keyCmdP
   = KeyGenerate_ <$> keyGenerateP
   <|> KeyRead_ <$> keyReadP
+
+-- ** Certificate
+
+data CertOptions
+  = CertCreate_ Cert.Create
+  | CertRead_ Cert.Read
+  deriving Show
+
+certCmdP :: Parser CertOptions
+certCmdP
+  = CertCreate_ <$> certCreate
+  <|> CertRead_ <$> certRead
+  where
+    certCreate = Cert.Create
+      <$> strOption (long "subject-key")
+      <*> strOption (long "issuer-key")
+      <*> strOption (long "subject")
+    certRead = Cert.Read <$> manyPaths "CERT"
+
+certCreate :: Cert.Create -> IO ()
+certCreate Cert.Create{Cert.subjectKey, Cert.issuerKey, Cert.subjectName} = do
+  putStrLn "hello certCreate"
+
+  -- get pubKey
+  pems :: [PEM.PEM] <- either fail pure . PEM.pemParseBS =<< BS.readFile subjectKey
+  let ek = Key.parseHeaderless $ TS.decodeUtf8 $ PEM.pemContent $ head pems :: Either String [PKCS8.OptProtected PrivKey]
+  pubKey :: PrivKey <- let tag = "OptProtected PrivKey"
+    in either fail pure $ ensureUnprotected tag =<< ensureOne tag =<< showLeft (mapM PKCS8.pemToKey pems)
+
+  -- get privKey
+  pems :: [PEM.PEM] <- either fail pure . PEM.pemParseBS =<< BS.readFile issuerKey
+  anyPrivKey :: PrivKey <- let tag = "OptProtected PrivKey"
+    in either fail pure $ ensureUnprotected tag =<< ensureOne tag =<< showLeft (mapM PKCS8.pemToKey pems)
+
+  -- create cert
+  validity1year <- Cert.validityIntervalFromNow
+  let (tbs, alg) = Cert.newTBS subjectName "issuerName" validity1year
+  case anyPrivKey of
+    X509.PrivKeyRSA issuerKey -> do
+      let subjectPublicKey = Key.getPubKey pubKey :: X509.PubKey
+      BS8.putStrLn . PEM.pemWriteBS . PEM.toPEM =<< Cert.mkCertificate @Key.RSA tbs issuerKey subjectPublicKey
+
+
+certRead :: Cert.Read -> IO ()
+certRead Cert.Read{Cert.paths} = do
+  forM_ paths $ \p -> do
+    signedExacts <- either fail pure . fromPem =<< BS.readFile p
+    mapM_ (printJson . signedObject . getSigned) signedExacts
+  where
+    printJson :: Certificate -> IO ()
+    printJson = BL8.putStrLn . A.encode . A.toJSON
+
+    fromPem :: BS.ByteString -> Either String [X509.SignedCertificate]
+    fromPem arg = do
+      pems <- throwPrefix "pemParseBS" $ PEM.pemParseBS arg
+      throwPrefix "decodeCertificate" $ traverse (X509.decodeSignedCertificate . PEM.pemContent) pems
 
 -- * Key
 
@@ -100,10 +166,12 @@ keyRead KeyRead{CLI.Key.paths} = earlyExit $ do
 -- * Main
 
 cli :: Parser Options
-cli = Options <$> hsubparser key <*> verbose
+cli = Options <$> hsubparser (key <> cert) <*> verbose
   where
     key = command "key" $ info (KeyOptions_ <$> keyCmdP)
         $ progDesc "Generate, check or password protect keys"
+    cert = command "cert" $ info (CertOptions_ <$> certCmdP)
+        $ progDesc "Create, modify or inspect certificates"
 
     verbose = switch
         $ long "verbose"
@@ -118,6 +186,9 @@ main = do
     KeyOptions_ keyOpts -> case keyOpts of
       KeyGenerate_ o -> keyGenerate o
       KeyRead_ o -> keyRead o
+    CertOptions_ certOpts -> case certOpts of
+      CertCreate_ o -> certCreate o
+      CertRead_ o -> certRead o
 
 hot :: IO ()
 hot = main

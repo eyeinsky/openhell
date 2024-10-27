@@ -44,10 +44,11 @@ library
 executable openhell
   import:         lang
   main-is:        Main.hs
-  other-modules:  CLI.Key, Helpers
+  other-modules:  CLI.Key, CLI.Cert, Helpers
   hs-source-dirs: exe
   build-depends:
       openhell
+    , aeson
     , base
     , bytestring
     , cryptonite
@@ -56,4 +57,5 @@ executable openhell
     , optparse-applicative
     , pem
     , x509
+    , text
     , time
