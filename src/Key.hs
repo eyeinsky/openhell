@@ -19,6 +19,8 @@ import Crypto.PubKey.DSA qualified as DSA
 import Crypto.PubKey.ECC.ECDSA qualified as ECDSA
 import Crypto.PubKey.ECC.Types qualified as ECC
 import Crypto.PubKey.ECC.Generate qualified as ECC
+import Crypto.PubKey.Curve25519 qualified as X25519
+import Crypto.PubKey.Curve448 qualified as X448
 import Crypto.PubKey.Ed25519 qualified as Ed25519
 import Crypto.PubKey.Ed448 qualified as Ed448
 import Crypto.PubKey.RSA qualified as RSA
@@ -33,6 +35,9 @@ import Data.X509 qualified as X509
 data RSA
 data DSA
 data ECDSA
+data EC
+data X25519
+data X448
 data Ed25519
 data Ed448
 
@@ -40,15 +45,21 @@ type family Private t :: Type
 type instance Private RSA = RSA.PrivateKey
 type instance Private DSA = DSA.PrivateKey
 type instance Private ECDSA = ECDSA.PrivateKey
+type instance Private EC = X509.PrivKeyEC
 type instance Private Ed25519 = Ed25519.SecretKey
 type instance Private Ed448 = Ed448.SecretKey
+type instance Private X25519 = X25519.SecretKey
+type instance Private X448 = X448.SecretKey
 
 type family Public t :: Type
 type instance Public RSA = RSA.PublicKey
 type instance Public DSA = DSA.PublicKey
 type instance Public ECDSA = ECDSA.PublicKey
+type instance Public EC = X509.PubKeyEC
 type instance Public Ed25519 = Ed25519.PublicKey
 type instance Public Ed448 = Ed448.PublicKey
+type instance Public X25519 = X25519.PublicKey
+type instance Public X448 = X448.PublicKey
 
 type Pair alg = (Public alg, Private alg)
 
@@ -99,9 +110,10 @@ toPKCS8 = PKCS8.keyToPEM PKCS8.PKCS8Format . toPrivKey
 class ToPrivKey key where toPrivKey :: key -> X509.PrivKey
 instance ToPrivKey RSA.PrivateKey where toPrivKey = X509.PrivKeyRSA
 instance ToPrivKey DSA.PrivateKey where toPrivKey = X509.PrivKeyDSA
--- instance ToPrivKey ECDSA.PrivateKey where toPrivKey = X509.PrivKeyEC
 instance ToPrivKey Ed25519.SecretKey where toPrivKey = X509.PrivKeyEd25519
 instance ToPrivKey Ed448.SecretKey where toPrivKey = X509.PrivKeyEd448
+instance ToPrivKey X25519.SecretKey where toPrivKey = X509.PrivKeyX25519
+instance ToPrivKey X448.SecretKey where toPrivKey = X509.PrivKeyX448
 
 -- | Helper class to convert from separate types to the single
 -- Data.X509.PubKey ADT.
@@ -134,8 +146,12 @@ instance ToPubKey ECDSA.PublicKey where
       Just name -> PubKeyEC (PubKeyEC_Named name pub)
       _ -> error "X509.SignatureAlgorithm.getPubKey: can't find ECC.CurveName for ECC.Curve"
 
+instance ToPubKey X509.PubKeyEC where toPubKey = X509.PubKeyEC
 instance ToPubKey Ed25519.PublicKey where toPubKey = X509.PubKeyEd25519
 instance ToPubKey Ed448.PublicKey where toPubKey = X509.PubKeyEd448
+instance ToPubKey X25519.PublicKey where toPubKey = X509.PubKeyX25519
+instance ToPubKey X448.PublicKey where toPubKey = X509.PubKeyX448
+
 
 -- * Parse
 
